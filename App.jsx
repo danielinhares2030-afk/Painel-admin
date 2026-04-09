@@ -8,8 +8,8 @@ import {
 
 import { auth, db } from './config/firebase';
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "firebase/auth";
-import { collection, doc, setDoc, getDocs, deleteDoc, updateDoc } from "firebase/firestore";
-import { uploadToCloudinary, applyCloudinaryTransform, removeBackgroundWithRemoveBg } from './services/api';
+import { auth, db } from './firebase';
+import { uploadToCloudinary, applyCloudinaryTransform, removeBackgroundWithRemoveBg } from './api';
 
 const GENEROS = ["Ação", "Aventura", "Romance", "Fantasia", "Sci-Fi", "Terror", "Sistema", "Isekai", "Escolar", "Artes Marciais", "Cultivo", "Comédia", "Drama", "Mistério", "Slice of Life", "Sobrenatural", "Histórico", "Esportes", "Mecha", "Psicológico"];
 const TIPOS = ["Mangá", "Manhwa", "Manhua", "Shoujo"];
