@@ -3,12 +3,13 @@ import {
   BookOpen, LayoutDashboard, PlusCircle, List, 
   UploadCloud, Trash2, LogOut, Loader2, Image as ImageIcon,
   Archive, AlertCircle, CheckCircle, Menu, X, Play, Edit3,
-  ShoppingBag, Tag, Coins, Wand2, Sparkles, Palette
+  ShoppingBag, Tag, Coins, Wand2, Sparkles, Palette, Layers
 } from 'lucide-react';
 
-import { auth, db } from './config/firebase';
-import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "firebase/auth";
+// IMPORTAÇÕES CORRIGIDAS - A LER DA MESMA PASTA
 import { auth, db } from './firebase';
+import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "firebase/auth";
+import { collection, doc, setDoc, getDocs, deleteDoc, updateDoc } from "firebase/firestore";
 import { uploadToCloudinary, applyCloudinaryTransform, removeBackgroundWithRemoveBg } from './api';
 
 const GENEROS = ["Ação", "Aventura", "Romance", "Fantasia", "Sci-Fi", "Terror", "Sistema", "Isekai", "Escolar", "Artes Marciais", "Cultivo", "Comédia", "Drama", "Mistério", "Slice of Life", "Sobrenatural", "Histórico", "Esportes", "Mecha", "Psicológico"];
@@ -938,7 +939,7 @@ function LojaIAView() {
     } else if (categoria === 'moldura') {
         regrasEspecificas = "CRÍTICO: MOLDURA DE AVATAR. Objeto 2D plano. CÍRCULO PERFEITO tocando as bordas da tela (sem margens). OBRIGATÓRIO: Cores BRILHANTES sobre um FUNDO 100% PRETO SÓLIDO (#000000). ImagePrompt: '2D flat UI asset, circular avatar profile frame touching the edges of the canvas, zero margins, perfect circle shape, bright glowing neon colors, PURE PITCH BLACK BACKGROUND #000000, empty center, NO WHITE BACKGROUND'.";
     } else if (categoria === 'avatar') {
-        regrasEspecificas = "CRÍTICO MAXIMO: AVATAR. O usuário quer apenas o rosto/busto do personagem. É ESTRITAMENTE PROIBIDO desenhar círculos coloridos, luas, emblemas, formas geométricas ou auras atrás da cabeça do personagem. O fundo DEVE ser 100% BRANCO SÓLIDO E VAZIO. ImagePrompt OBRIGATÓRIO: 'Close-up portrait of [NOME DO PERSONAGEM, se pedido], perfectly centered, authentic 2D anime style, masterpiece, exactly two normal eyes, clean face, PURE SOLID WHITE BACKGROUND #FFFFFF, completely empty background, NO colored circles behind character, NO geometric shapes, NO halos, NO auras'.";
+        regrasEspecificas = "CRÍTICO MAXIMO: AVATAR. O segredo aqui é separar a imagem do fundo! Na imagem (imagePrompt), você DEVE gerar apenas o personagem sobre um fundo 100% BRANCO SÓLIDO E VAZIO. É EXPRESSAMENTE PROIBIDO desenhar círculos, luas, emblemas ou auras atrás do personagem na imagem. Em contrapartida, no código 'css', você DEVE adicionar uma propriedade 'background' incrível (ex: radial-gradient, linear-gradient) que combine com o personagem. A nossa API vai apagar o fundo branco da imagem e o seu fundo CSS vai brilhar por trás de forma perfeita! ImagePrompt OBRIGATÓRIO: 'Close-up portrait of [NOME DO PERSONAGEM, se pedido], [DESCRIÇÃO FIEL DAS ROUPAS/CABELO], perfectly centered, authentic 2D anime style, exactly two normal eyes. PURE SOLID WHITE STUDIO BACKGROUND #FFFFFF. completely empty white background, NO colored circles behind character, NO geometric shapes, NO halos'.";
     } else if (categoria === 'nickname') {
         regrasEspecificas = "CRÍTICO: O usuário quer um EFEITO PARA NICKNAME (Texto). NÃO DEVE GERAR IMAGEM! OBRIGATÓRIO: Defina o campo 'imagePrompt' EXATAMENTE com a palavra 'NONE'.";
     }
@@ -961,7 +962,7 @@ function LojaIAView() {
       - PROIBIDO usar propriedades de LAYOUT no CSS (como width, height, margin, position, display).
       - Se for animado, OBRIGATORIAMENTE crie animações no campo 'keyframes' e aplique na string do 'css'.
 
-      REGRAS DE FIDELIDADE EXTREMA E COPYRIGHT: O usuário odeia personagens genéricos. Se ele pedir um personagem de Anime, Mangá ou Manhwa (ex: Sasuke, Naruto, Jinwoo, Gojo), VOCÊ É OBRIGADO a gerar o personagem EXATAMENTE como ele é, COM AS ROUPAS, OLHOS (ex: Sharingan) E CABELO ORIGINAIS. O gerador de imagens pode bloquear nomes com direitos de autor, portanto, no 'imagePrompt', use o NOME REAL do personagem, mas também inclua uma descrição visual absurdamente detalhada de como ele é, para garantir que ele saia perfeito se o nome for ignorado.
+      REGRAS DE FIDELIDADE (MUITO IMPORTANTE): O usuário odeia personagens genéricos. Se ele pedir um personagem específico de Anime, Mangá ou Manhwa (ex: Sasuke, Naruto, Gojo), VOCÊ É OBRIGADO a gerar o personagem EXATAMENTE como ele é. No 'imagePrompt', use o nome real do personagem e da obra, e descreva visualmente os detalhes únicos dele em INGLÊS.
       
       ${regraRaridade}`;
 
@@ -1054,7 +1055,7 @@ function LojaIAView() {
           let blob = await res.blob();
           
           if (generatedItem.categoria === 'avatar') {
-             setStatusMsg('A remover o fundo com Remove.bg...');
+             setStatusMsg('A remover o fundo do ecrã branco com Remove.bg...');
              try {
                 blob = await removeBackgroundWithRemoveBg(blob);
              } catch(removeErr) {
@@ -1065,7 +1066,7 @@ function LojaIAView() {
 
           const file = new File([blob], `${generatedItem.id}.png`, { type: "image/png" });
           
-          setStatusMsg('A enviar para a Nuvem...');
+          setStatusMsg('A guardar na Loja...');
           let cloudUrl = await uploadToCloudinary(file);
           
           let filtroOculto = 'none';
@@ -1173,6 +1174,7 @@ function LojaIAView() {
 
                     {/* CAIXA DE PREVIEW REDONDA SEMPRE PARA AVATAR E MOLDURA */}
                     <div className="flex-1 flex items-center justify-center w-full relative mb-6 md:mb-8 mt-4 md:mt-0">
+                      {/* Adicionamos a classe CSS no próprio wrapper para o Fundo Animado aparecer por trás do Avatar recortado! */}
                       <div className={`relative w-48 h-48 md:w-64 md:h-64 flex items-center justify-center bg-gray-900 border border-gray-800 shadow-2xl overflow-hidden group ${isCircularPreview ? 'rounded-full' : 'rounded-3xl'} ${generatedItem.categoria === 'avatar' ? generatedItem.cssClass : ''}`}>
                          
                          {generatedItem.categoria === 'capa_fundo' && generatedItem.previewBase64 && (
@@ -1185,6 +1187,7 @@ function LojaIAView() {
                            </div>
                          )}
 
+                         {/* Aplica Mix-Blend Screen na Preview e usa h-full w-full cover para as molduras/avatares preencherem tudo */}
                          {generatedItem.previewBase64 && generatedItem.categoria !== 'capa_fundo' && (
                             <img 
                               src={generatedItem.previewBase64} 
@@ -1239,24 +1242,3 @@ function LojaIAView() {
 }
 
 export default function App() { return <ErrorBoundary><AdminPanel /></ErrorBoundary>; }
-```
-
----
-
-### Passo 5: Publicar no GitHub e Vercel
-
-Agora que o seu código está modularizado e seguro (graças ao ficheiro `.env`), vamos colocá-lo online!
-
-No seu terminal, execute:
-
-```bash
-# Inicia o Git
-git init
-git add .
-git commit -m "Admin V2.0 Limpo e Seguro"
-
-# Vá ao GitHub.com, crie um repositório vazio chamado "manga-admin"
-# Depois copie o comando que o GitHub lhe dá parecido com este e execute:
-git branch -M main
-git remote add origin https://github.com/SEU_USUARIO/manga-admin.git
-git push -u origin main
