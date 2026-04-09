@@ -6,7 +6,6 @@ import {
   ShoppingBag, Tag, Coins, Wand2, Sparkles, Palette, Layers
 } from 'lucide-react';
 
-// IMPORTAÇÕES CORRIGIDAS - A LER DA MESMA PASTA
 import { auth, db } from './firebase';
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "firebase/auth";
 import { collection, doc, setDoc, getDocs, deleteDoc, updateDoc } from "firebase/firestore";
@@ -926,20 +925,19 @@ function LojaIAView() {
     setGeneratedItem(null);
     setStatusMsg('A IA está a arquitetar o item...');
 
-    const apiKey = ""; // Canvas providencia a chave
+    const apiKey = import.meta.env.VITE_FIREBASE_API_KEY; // Usando a chave que estiver configurada
     const textModelUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
     const imageModelUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${apiKey}`;
 
     const finalPrompt = prompt.trim() === '' ? 'Invente um tema totalmente aleatório e criativo.' : prompt;
 
-    // REGRAS MAXIMAS APENAS PARA AS 4 CATEGORIAS SELECIONADAS
     let regrasEspecificas = "";
     if (categoria === 'capa_fundo') {
         regrasEspecificas = "CRÍTICO: O usuário quer um FUNDO (Background). É PROIBIDO desenhar personagens. ImagePrompt: 'Scenery, landscape, background only, NO CHARACTERS'.";
     } else if (categoria === 'moldura') {
         regrasEspecificas = "CRÍTICO: MOLDURA DE AVATAR. Objeto 2D plano. CÍRCULO PERFEITO tocando as bordas da tela (sem margens). OBRIGATÓRIO: Cores BRILHANTES sobre um FUNDO 100% PRETO SÓLIDO (#000000). ImagePrompt: '2D flat UI asset, circular avatar profile frame touching the edges of the canvas, zero margins, perfect circle shape, bright glowing neon colors, PURE PITCH BLACK BACKGROUND #000000, empty center, NO WHITE BACKGROUND'.";
     } else if (categoria === 'avatar') {
-        regrasEspecificas = "CRÍTICO MAXIMO: AVATAR. O segredo aqui é separar a imagem do fundo! Na imagem (imagePrompt), você DEVE gerar apenas o personagem sobre um fundo 100% BRANCO SÓLIDO E VAZIO. É EXPRESSAMENTE PROIBIDO desenhar círculos, luas, emblemas ou auras atrás do personagem na imagem. Em contrapartida, no código 'css', você DEVE adicionar uma propriedade 'background' incrível (ex: radial-gradient, linear-gradient) que combine com o personagem. A nossa API vai apagar o fundo branco da imagem e o seu fundo CSS vai brilhar por trás de forma perfeita! ImagePrompt OBRIGATÓRIO: 'Close-up portrait of [NOME DO PERSONAGEM, se pedido], [DESCRIÇÃO FIEL DAS ROUPAS/CABELO], perfectly centered, authentic 2D anime style, exactly two normal eyes. PURE SOLID WHITE STUDIO BACKGROUND #FFFFFF. completely empty white background, NO colored circles behind character, NO geometric shapes, NO halos'.";
+        regrasEspecificas = "CRÍTICO MAXIMO: AVATAR. O segredo aqui é separar a imagem do fundo! Na imagem (imagePrompt), você DEVE gerar apenas o personagem sobre um fundo 100% BRANCO SÓLIDO E VAZIO. É EXPRESSAMENTE PROIBIDO desenhar círculos, luas, emblemas ou auras atrás do personagem na imagem. Em contrapartida, no código 'css', você DEVE adicionar uma propriedade 'background' incrível (ex: radial-gradient, linear-gradient) que combine com o personagem. A nossa API vai apagar o fundo branco da imagem e o seu fundo CSS vai brilhar por trás de forma perfeita! ImagePrompt OBRIGATÓRIO: 'Close-up portrait of [NOME DO PERSONAGEM, se pedido], perfectly centered, authentic 2D anime style, masterpiece, exactly two normal eyes, clean face, PURE SOLID WHITE BACKGROUND #FFFFFF, completely empty background, NO colored circles behind character, NO geometric shapes, NO halos, NO auras'.";
     } else if (categoria === 'nickname') {
         regrasEspecificas = "CRÍTICO: O usuário quer um EFEITO PARA NICKNAME (Texto). NÃO DEVE GERAR IMAGEM! OBRIGATÓRIO: Defina o campo 'imagePrompt' EXATAMENTE com a palavra 'NONE'.";
     }
@@ -962,7 +960,7 @@ function LojaIAView() {
       - PROIBIDO usar propriedades de LAYOUT no CSS (como width, height, margin, position, display).
       - Se for animado, OBRIGATORIAMENTE crie animações no campo 'keyframes' e aplique na string do 'css'.
 
-      REGRAS DE FIDELIDADE (MUITO IMPORTANTE): O usuário odeia personagens genéricos. Se ele pedir um personagem específico de Anime, Mangá ou Manhwa (ex: Sasuke, Naruto, Gojo), VOCÊ É OBRIGADO a gerar o personagem EXATAMENTE como ele é. No 'imagePrompt', use o nome real do personagem e da obra, e descreva visualmente os detalhes únicos dele em INGLÊS.
+      REGRAS DE FIDELIDADE EXTREMA E COPYRIGHT: O usuário odeia personagens genéricos. Se ele pedir um personagem de Anime, Mangá ou Manhwa (ex: Sasuke, Naruto, Jinwoo, Gojo), VOCÊ É OBRIGADO a gerar o personagem EXATAMENTE como ele é, COM AS ROUPAS, OLHOS (ex: Sharingan) E CABELO ORIGINAIS. O gerador de imagens pode bloquear nomes com direitos de autor, portanto, no 'imagePrompt', use o NOME REAL do personagem, mas também inclua uma descrição visual absurdamente detalhada de como ele é, para garantir que ele saia perfeito se o nome for ignorado.
       
       ${regraRaridade}`;
 
