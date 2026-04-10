@@ -925,7 +925,7 @@ function LojaIAView() {
     setGeneratedItem(null);
     setStatusMsg('A IA está a arquitetar o item...');
 
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY; // Usando a chave que estiver configurada
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY; // Chave dedicada e correta da IA
     const textModelUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
     const imageModelUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${apiKey}`;
 
