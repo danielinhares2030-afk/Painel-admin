@@ -524,7 +524,7 @@ function GerenciarObrasView() {
             <h3 className="text-2xl font-black text-white mb-2">Apagar Capítulo?</h3>
             <p className="text-gray-400 mb-8 text-sm">Tem a certeza que deseja eliminar o <b>Capítulo {capToDelete.number}</b>?</p>
             <div className="flex gap-4">
-               <button onClick={() => setCapToDelete(null)} className="flex-1 bg-gray-800 text-white font-bold py-3.5 rounded-xl hover:bg-gray-700 transition-colors">Cancelar</button>
+               <button onClick={() => setOldCapToDelete(null)} className="flex-1 bg-gray-800 text-white font-bold py-3.5 rounded-xl hover:bg-gray-700 transition-colors">Cancelar</button>
                <button onClick={confirmDeleteCap} className="flex-1 bg-red-600 text-white font-bold py-3.5 rounded-xl hover:bg-red-500 shadow-lg shadow-red-600/30 transition-colors">Eliminar</button>
             </div>
           </div>
@@ -714,7 +714,7 @@ function UploadCapituloView() {
                      <input type="number" step="0.1" placeholder="Nº do Cap." value={item.chapterNum} onChange={e => updateQueueItem(item.id, 'chapterNum', e.target.value)} disabled={isProcessing || item.status === 'done'} className={`w-full sm:w-32 bg-gray-950 border rounded-xl px-4 py-3 text-white outline-none text-sm font-bold transition-colors ${!item.chapterNum && !isProcessing ? 'border-red-500/50' : 'border-gray-700'}`} />
                      <div className="flex items-center gap-2">
                        <span className={`text-xs font-bold px-3 py-2 rounded-lg w-20 text-center ${item.status === 'pending' ? 'bg-gray-800 text-gray-300' : item.status === 'uploading' ? 'bg-blue-600 text-white animate-pulse' : item.status === 'done' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}>{item.status === 'pending' ? 'Aguardar' : item.status === 'uploading' ? 'A Enviar' : item.status === 'done' ? 'Sucesso' : 'Erro'}</span>
-                       <button onClick={() => removeQueueItem(item.id)} disabled={isProcessing} className="text-red-500 hover:bg-red-500/10 p-3 rounded-xl transition-colors disabled:opacity-30"><Trash2 className="w-5 h-5"/></button>
+                       <button onClick={() => removeQueueItem(id)} disabled={isProcessing} className="text-red-500 hover:bg-red-500/10 p-3 rounded-xl transition-colors disabled:opacity-30"><Trash2 className="w-5 h-5"/></button>
                      </div>
                    </div>
                 </div>
@@ -902,7 +902,7 @@ function LojaView() {
             <h3 className="text-2xl font-black text-white mb-2">Apagar Item?</h3>
             <p className="text-gray-400 mb-8 text-sm">Tem a certeza que deseja eliminar permanentemente <b>"{itemToDelete.nome}"</b> da loja?</p>
             <div className="flex gap-4">
-               <button onClick={() => setItemToDelete(null)} className="flex-1 bg-gray-800 text-white font-bold py-3.5 rounded-xl hover:bg-gray-700 transition-colors">Cancelar</button>
+               <button onClick={() => setOldItemToDelete(null)} className="flex-1 bg-gray-800 text-white font-bold py-3.5 rounded-xl hover:bg-gray-700 transition-colors">Cancelar</button>
                <button onClick={confirmDelete} className="flex-1 bg-red-600 text-white font-bold py-3.5 rounded-xl hover:bg-red-500 shadow-lg shadow-red-600/30 transition-colors">Eliminar</button>
             </div>
           </div>
@@ -935,8 +935,8 @@ function LojaIAView() {
       return;
     }
 
-    // Usando o modelo super estável da Google
-    const textModelUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    // ATUALIZAÇÃO 2026: Usando a rota v1 estável e o modelo Gemini 3 Flash
+    const textModelUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-3-flash:generateContent?key=${apiKey}`;
 
     const finalPrompt = prompt.trim() === '' ? 'Invente um tema totalmente aleatório e criativo.' : prompt;
 
