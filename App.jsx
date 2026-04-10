@@ -524,7 +524,7 @@ function GerenciarObrasView() {
             <h3 className="text-2xl font-black text-white mb-2">Apagar Capítulo?</h3>
             <p className="text-gray-400 mb-8 text-sm">Tem a certeza que deseja eliminar o <b>Capítulo {capToDelete.number}</b>?</p>
             <div className="flex gap-4">
-               <button onClick={() => setOldCapToDelete(null)} className="flex-1 bg-gray-800 text-white font-bold py-3.5 rounded-xl hover:bg-gray-700 transition-colors">Cancelar</button>
+               <button onClick={() => setCapToDelete(null)} className="flex-1 bg-gray-800 text-white font-bold py-3.5 rounded-xl hover:bg-gray-700 transition-colors">Cancelar</button>
                <button onClick={confirmDeleteCap} className="flex-1 bg-red-600 text-white font-bold py-3.5 rounded-xl hover:bg-red-500 shadow-lg shadow-red-600/30 transition-colors">Eliminar</button>
             </div>
           </div>
@@ -714,7 +714,7 @@ function UploadCapituloView() {
                      <input type="number" step="0.1" placeholder="Nº do Cap." value={item.chapterNum} onChange={e => updateQueueItem(item.id, 'chapterNum', e.target.value)} disabled={isProcessing || item.status === 'done'} className={`w-full sm:w-32 bg-gray-950 border rounded-xl px-4 py-3 text-white outline-none text-sm font-bold transition-colors ${!item.chapterNum && !isProcessing ? 'border-red-500/50' : 'border-gray-700'}`} />
                      <div className="flex items-center gap-2">
                        <span className={`text-xs font-bold px-3 py-2 rounded-lg w-20 text-center ${item.status === 'pending' ? 'bg-gray-800 text-gray-300' : item.status === 'uploading' ? 'bg-blue-600 text-white animate-pulse' : item.status === 'done' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}>{item.status === 'pending' ? 'Aguardar' : item.status === 'uploading' ? 'A Enviar' : item.status === 'done' ? 'Sucesso' : 'Erro'}</span>
-                       <button onClick={() => removeQueueItem(id)} disabled={isProcessing} className="text-red-500 hover:bg-red-500/10 p-3 rounded-xl transition-colors disabled:opacity-30"><Trash2 className="w-5 h-5"/></button>
+                       <button onClick={() => removeQueueItem(item.id)} disabled={isProcessing} className="text-red-500 hover:bg-red-500/10 p-3 rounded-xl transition-colors disabled:opacity-30"><Trash2 className="w-5 h-5"/></button>
                      </div>
                    </div>
                 </div>
@@ -902,7 +902,7 @@ function LojaView() {
             <h3 className="text-2xl font-black text-white mb-2">Apagar Item?</h3>
             <p className="text-gray-400 mb-8 text-sm">Tem a certeza que deseja eliminar permanentemente <b>"{itemToDelete.nome}"</b> da loja?</p>
             <div className="flex gap-4">
-               <button onClick={() => setOldItemToDelete(null)} className="flex-1 bg-gray-800 text-white font-bold py-3.5 rounded-xl hover:bg-gray-700 transition-colors">Cancelar</button>
+               <button onClick={() => setItemToDelete(null)} className="flex-1 bg-gray-800 text-white font-bold py-3.5 rounded-xl hover:bg-gray-700 transition-colors">Cancelar</button>
                <button onClick={confirmDelete} className="flex-1 bg-red-600 text-white font-bold py-3.5 rounded-xl hover:bg-red-500 shadow-lg shadow-red-600/30 transition-colors">Eliminar</button>
             </div>
           </div>
@@ -929,48 +929,40 @@ function LojaIAView() {
     const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
 
     if (!apiKey) {
-      alert("ERRO: A chave VITE_GEMINI_API_KEY não foi encontrada! Verifique as variáveis na Vercel e faça Redeploy sem cache.");
+      alert("ERRO: A chave VITE_GEMINI_API_KEY não foi encontrada!");
       setIsGenerating(false);
       setStatusMsg('');
       return;
     }
 
-    // ATUALIZAÇÃO 2026: Usando a rota v1 estável e o modelo Gemini 3 Flash
+    // URL ATUALIZADA 2026: Usando snake_case nos campos JSON internos
     const textModelUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-3-flash:generateContent?key=${apiKey}`;
 
     const finalPrompt = prompt.trim() === '' ? 'Invente um tema totalmente aleatório e criativo.' : prompt;
 
     let regrasEspecificas = "";
     if (categoria === 'capa_fundo') {
-        regrasEspecificas = "CRÍTICO: O usuário quer um FUNDO (Background). É PROIBIDO desenhar personagens. ImagePrompt: 'Scenery, landscape, background only, NO CHARACTERS'.";
+        regrasEspecificas = "CRÍTICO: FUNDO (Background). NO CHARACTERS.";
     } else if (categoria === 'moldura') {
-        regrasEspecificas = "CRÍTICO: MOLDURA DE AVATAR. Objeto 2D plano. CÍRCULO PERFEITO tocando as bordas da tela. OBRIGATÓRIO: Cores BRILHANTES sobre um FUNDO 100% PRETO SÓLIDO (#000000). ImagePrompt: '2D flat UI asset, circular avatar profile frame touching the edges of the canvas, zero margins, perfect circle shape, bright glowing neon colors, PURE PITCH BLACK BACKGROUND #000000, empty center, NO WHITE BACKGROUND'.";
+        regrasEspecificas = "CRÍTICO: MOLDURA circular 2D neon sobre FUNDO #000000.";
     } else if (categoria === 'avatar') {
-        regrasEspecificas = "CRÍTICO MAXIMO: AVATAR. Gere apenas o personagem sobre um fundo 100% BRANCO SÓLIDO. ImagePrompt: 'Close-up portrait of [NOME], perfectly centered, authentic 2D anime style, clean face, PURE SOLID WHITE BACKGROUND #FFFFFF, completely empty background'.";
+        regrasEspecificas = "CRÍTICO: Personagem sobre fundo BRANCO #FFFFFF. CSS background incrível.";
     } else if (categoria === 'nickname') {
-        regrasEspecificas = "CRÍTICO: O usuário quer um EFEITO PARA NICKNAME (Texto). NÃO DEVE GERAR IMAGEM! OBRIGATÓRIO: Defina o campo 'imagePrompt' EXATAMENTE com a palavra 'NONE'.";
+        regrasEspecificas = "CRÍTICO: Efeito de texto. imagePrompt: 'NONE'.";
     }
 
-    let regraRaridade = `A 'raridade' deve ser escolhida pela IA. Use EXATAMENTE: "comum", "raro", "epico", "lendario" ou "mitico".`;
-    if (raridadeSelecionada !== 'aleatorio') {
-        regraRaridade = `MUITO IMPORTANTE: A 'raridade' DEVE SER EXATAMENTE: "${raridadeSelecionada}".`;
-    }
-
-    const systemInstruction = `Você é o diretor de arte de um App de Mangá. Crie um item cosmético único da categoria '${categoria}'.
-      Pedido do usuário: '${finalPrompt}'.
-      ${regrasEspecificas}
-      O 'css' deve conter APENAS propriedades de ESTILO VISUAL. Para AVATARES, gere um 'background' no CSS (ex: linear-gradient).
-      ${regraRaridade}`;
+    const systemInstruction = `Você é diretor de arte. Crie cosmético para '${categoria}'. Pedido: '${finalPrompt}'. ${regrasEspecificas}`;
 
     try {
       const response = await fetch(textModelUrl, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
-          systemInstruction: { parts: [{ text: systemInstruction }] },
-          generationConfig: {
-            responseMimeType: "application/json",
-            responseSchema: {
+          // CAMPOS CORRIGIDOS PARA SNAKE_CASE (EXIGÊNCIA DA API V1)
+          system_instruction: { parts: [{ text: systemInstruction }] },
+          generation_config: {
+            response_mime_type: "application/json",
+            response_schema: {
               type: "OBJECT",
               properties: {
                 nome: { type: "STRING" },
@@ -991,10 +983,7 @@ function LojaIAView() {
       if (textData.error) {
         throw new Error(`Recusa da API Google: ${textData.error.message}`);
       }
-      if (!textData.candidates || textData.candidates.length === 0) {
-        throw new Error("A API da Google não devolveu candidatos válidos.");
-      }
-
+      
       const aiResult = JSON.parse(textData.candidates[0].content.parts[0].text);
 
       let base64Image = "";
@@ -1004,20 +993,17 @@ function LojaIAView() {
            const cleanPrompt = encodeURIComponent(aiResult.imagePrompt);
            const imgRes = await fetch(`https://image.pollinations.ai/prompt/${cleanPrompt}?nologo=true`);
            const imgBlob = await imgRes.blob();
-           
            const reader = new FileReader();
            reader.readAsDataURL(imgBlob);
-           base64Image = await new Promise(resolve => {
-              reader.onloadend = () => resolve(reader.result);
-           });
+           base64Image = await new Promise(resolve => { reader.onloadend = () => resolve(reader.result); });
          } catch (imgErr) {
-           throw new Error("Erro ao desenhar a imagem: " + imgErr.message);
+           throw new Error("Erro na imagem: " + imgErr.message);
          }
       }
 
       const raridadeFinal = raridadeSelecionada !== 'aleatorio' ? raridadeSelecionada : aiResult.raridade;
       const finalPrice = TABELA_PRECOS[raridadeFinal] || 1000;
-      const uniqueId = "item_" + Date.now() + Math.floor(Math.random()*1000);
+      const uniqueId = "item_" + Date.now();
 
       setGeneratedItem({
         id: uniqueId,
@@ -1044,34 +1030,18 @@ function LojaIAView() {
   const handleSaveToStore = async () => {
     if(!generatedItem) return;
     setIsSaving(true);
-    setStatusMsg('Processando imagem...');
-
     try {
        let finalImageUrl = "";
        if (generatedItem.previewBase64) {
           const res = await fetch(generatedItem.previewBase64);
           let blob = await res.blob();
-          
           if (generatedItem.categoria === 'avatar') {
-             setStatusMsg('A remover o fundo do ecrã branco com Remove.bg...');
-             try {
-                blob = await removeBackgroundWithRemoveBg(blob);
-             } catch(removeErr) {
-                console.warn("Remove.bg failed:", removeErr);
-                alert("Aviso: A API do Remove.bg falhou (" + removeErr.message + "). A imagem será salva com o fundo original.");
-             }
+             blob = await removeBackgroundWithRemoveBg(blob);
           }
-
           const file = new File([blob], `${generatedItem.id}.png`, { type: "image/png" });
-          
-          setStatusMsg('A guardar na Loja...');
           let cloudUrl = await uploadToCloudinary(file);
-          
-          let filtroOculto = 'none';
-          if (generatedItem.categoria === 'moldura') {
-            filtroOculto = 'e_make_transparent:30:black';
-          }
-          finalImageUrl = applyCloudinaryTransform(cloudUrl, filtroOculto);
+          let transform = generatedItem.categoria === 'moldura' ? 'e_make_transparent:30:black' : 'none';
+          finalImageUrl = applyCloudinaryTransform(cloudUrl, transform);
        }
 
        await setDoc(doc(db, "loja_itens", generatedItem.id), {
@@ -1087,14 +1057,12 @@ function LojaIAView() {
           createdAt: Date.now()
        });
 
-       alert("Cosmético guardado na Loja com sucesso!");
+       alert("Salvo com sucesso!");
        setGeneratedItem(null);
-       setPrompt('');
     } catch(err) {
-       alert("Erro ao guardar na loja: " + err.message);
+       alert("Erro ao salvar: " + err.message);
     } finally {
        setIsSaving(false);
-       setStatusMsg('');
     }
   };
 
@@ -1105,20 +1073,17 @@ function LojaIAView() {
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="bg-gray-900 border border-gray-800 p-6 md:p-10 rounded-[2rem] shadow-xl space-y-8 relative overflow-hidden">
         <div className="absolute -top-40 -right-40 w-96 h-96 bg-purple-600/20 rounded-full blur-[100px] pointer-events-none"></div>
-        <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-indigo-600/20 rounded-full blur-[100px] pointer-events-none"></div>
-
         <div className="relative z-10">
-          <h3 className="text-2xl md:text-3xl font-black text-white flex items-center gap-3 mb-2"><Wand2 className="w-8 h-8 text-purple-500" /> IA Geradora de Cosméticos</h3>
-          <p className="text-gray-400 text-sm md:text-base">Descreva o item ou deixe em branco para a inteligência artificial inventar algo surpreendente.</p>
+          <h3 className="text-2xl md:text-3xl font-black text-white flex items-center gap-3 mb-2"><Wand2 className="w-8 h-8 text-purple-500" /> IA Geradora 2026</h3>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 relative z-10">
           <div className="lg:col-span-1 space-y-6 bg-gray-950 p-6 rounded-3xl border border-gray-800">
              <div>
-               <label className="block text-sm font-bold text-gray-400 mb-3">Categoria do Item</label>
+               <label className="block text-sm font-bold text-gray-400 mb-3">Categoria</label>
                <div className="flex flex-wrap gap-2">
                  {CATEGORIAS_IA.map(cat => (
-                   <button key={cat} onClick={()=>setCategoria(cat)} className={`px-4 py-2.5 text-xs font-bold rounded-xl border transition-all ${categoria === cat ? 'bg-purple-600 border-purple-500 text-white shadow-lg shadow-purple-600/30' : 'bg-gray-900 text-gray-400 border-gray-800 hover:text-white hover:border-gray-600 capitalize'}`}>
+                   <button key={cat} onClick={()=>setCategoria(cat)} className={`px-4 py-2.5 text-xs font-bold rounded-xl border transition-all ${categoria === cat ? 'bg-purple-600 border-purple-500 text-white shadow-lg' : 'bg-gray-900 text-gray-400 border-gray-800 hover:text-white capitalize'}`}>
                      {cat.replace('_', ' ')}
                    </button>
                  ))}
@@ -1126,104 +1091,49 @@ function LojaIAView() {
              </div>
              
              <div>
-               <label className="block text-sm font-bold text-gray-400 mb-2">Raridade Desejada</label>
-               <select value={raridadeSelecionada} onChange={e=>setRaridadeSelecionada(e.target.value)} className="w-full bg-gray-900 p-3.5 rounded-xl border border-gray-800 text-white outline-none focus:border-purple-500 cursor-pointer capitalize font-bold">
+               <label className="block text-sm font-bold text-gray-400 mb-2">Raridade</label>
+               <select value={raridadeSelecionada} onChange={e=>setRaridadeSelecionada(e.target.value)} className="w-full bg-gray-900 p-3.5 rounded-xl border border-gray-800 text-white outline-none capitalize font-bold">
                  {RARIDADES_IA.map(r => (
-                   <option key={r} value={r}>{r === 'aleatorio' ? 'Deixar IA Escolher (Aleatório)' : r}</option>
+                   <option key={r} value={r}>{r === 'aleatorio' ? 'Aleatório' : r}</option>
                  ))}
                </select>
              </div>
 
              <div>
-               <label className="block text-sm font-bold text-gray-400 mb-2">Prompt (Opcional)</label>
-               <textarea value={prompt} onChange={e=>setPrompt(e.target.value)} placeholder="Descreva um personagem de anime (ex: Sasuke Uchiha) ou um efeito incrível..." rows="4" className="w-full bg-gray-900 p-4 rounded-xl border border-gray-800 text-white outline-none focus:border-purple-500 resize-none transition-colors" />
+               <label className="block text-sm font-bold text-gray-400 mb-2">Prompt</label>
+               <textarea value={prompt} onChange={e=>setPrompt(e.target.value)} placeholder="Ex: Sasuke Uchiha" rows="4" className="w-full bg-gray-900 p-4 rounded-xl border border-gray-800 text-white outline-none resize-none" />
              </div>
 
-             <button onClick={handleGenerate} disabled={isGenerating || isSaving} className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white py-4 rounded-xl font-black flex items-center justify-center gap-3 transition-all shadow-lg shadow-purple-600/30 disabled:opacity-50">
+             <button onClick={handleGenerate} disabled={isGenerating || isSaving} className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white py-4 rounded-xl font-black flex items-center justify-center gap-3 shadow-lg disabled:opacity-50">
                 {isGenerating ? <Loader2 className="w-6 h-6 animate-spin"/> : <Sparkles className="w-6 h-6" />}
-                {isGenerating ? statusMsg : 'Gerar Magia com IA'}
+                {isGenerating ? statusMsg : 'Gerar Magia'}
              </button>
           </div>
 
           <div className="lg:col-span-2 flex flex-col">
             <h4 className="text-gray-400 font-bold text-sm mb-4 uppercase tracking-widest flex items-center gap-2"><Palette className="w-4 h-4"/> Preview Visual</h4>
-            
             <div className="flex-1 bg-gray-950 border border-gray-800 rounded-3xl p-5 md:p-10 flex flex-col items-center justify-center min-h-[400px] relative">
-               {isGenerating && (
-                 <div className="flex flex-col items-center text-center animate-pulse p-4">
-                   <div className="w-16 h-16 md:w-20 md:h-20 mb-6 bg-purple-900/30 rounded-full flex items-center justify-center border border-purple-500/50 relative overflow-hidden">
-                     <Wand2 className="w-8 h-8 md:w-10 md:h-10 text-purple-400 absolute animate-spin" style={{ animationDuration: '3s' }}/>
-                   </div>
-                   <h2 className="text-xl md:text-2xl font-black text-white bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-indigo-400">Trabalhando...</h2>
-                   <p className="text-gray-500 mt-2 font-bold text-sm">{statusMsg}</p>
-                 </div>
-               )}
-
-               {!isGenerating && !generatedItem && (
-                 <div className="text-center opacity-30 p-4">
-                    <Wand2 className="w-16 h-16 md:w-20 md:h-20 mx-auto mb-4 text-gray-500" />
-                    <p className="text-base md:text-lg font-bold text-gray-400">Aguardando instruções...</p>
-                 </div>
-               )}
-
+               {isGenerating && <div className="text-center"><Loader2 className="w-10 h-10 animate-spin text-purple-500 mx-auto mb-4"/><p className="text-white font-bold">{statusMsg}</p></div>}
+               {!isGenerating && !generatedItem && <p className="text-gray-600 font-bold">Aguardando comando...</p>}
                {!isGenerating && generatedItem && (
                  <div className="w-full h-full flex flex-col animate-in zoom-in-95 duration-500">
                     <style dangerouslySetInnerHTML={{__html: `.${generatedItem.cssClass} { ${generatedItem.css} } ${generatedItem.keyframes}`}} />
-
-                    <div className="flex-1 flex items-center justify-center w-full relative mb-6 md:mb-8 mt-4 md:mt-0">
-                      <div className={`relative w-48 h-48 md:w-64 md:h-64 flex items-center justify-center bg-gray-900 border border-gray-800 shadow-2xl overflow-hidden group ${isCircularPreview ? 'rounded-full' : 'rounded-3xl'} ${generatedItem.categoria === 'avatar' ? generatedItem.cssClass : ''}`}>
-                         
-                         {generatedItem.categoria === 'capa_fundo' && generatedItem.previewBase64 && (
-                           <img src={generatedItem.previewBase64} className={`absolute inset-0 m-auto w-full h-full object-cover opacity-50 ${generatedItem.cssClass}`} />
+                    <div className="flex-1 flex items-center justify-center w-full relative mb-8">
+                      <div className={`relative w-48 h-48 md:w-64 md:h-64 flex items-center justify-center bg-gray-900 border border-gray-800 shadow-2xl overflow-hidden ${isCircularPreview ? 'rounded-full' : 'rounded-3xl'} ${generatedItem.categoria === 'avatar' ? generatedItem.cssClass : ''}`}>
+                         {generatedItem.previewBase64 && (
+                            <img src={generatedItem.previewBase64} className={`absolute inset-0 m-auto w-full h-full object-cover z-20 pointer-events-none ${generatedItem.categoria !== 'avatar' ? generatedItem.cssClass : ''}`} style={isItemBlendable ? { mixBlendMode: 'screen' } : {}}/>
                          )}
-
-                         {isItemBlendable && (
-                           <div className="absolute inset-0 m-auto w-32 h-32 md:w-44 md:h-44 bg-gray-800 rounded-full border-4 border-gray-900 z-10 flex items-center justify-center overflow-hidden shadow-inner">
-                              <ImageIcon className="w-8 h-8 md:w-10 md:h-10 text-gray-600"/>
-                           </div>
-                         )}
-
-                         {generatedItem.previewBase64 && generatedItem.categoria !== 'capa_fundo' && (
-                            <img 
-                              src={generatedItem.previewBase64} 
-                              className={`absolute inset-0 m-auto w-full h-full object-cover z-20 pointer-events-none ${generatedItem.categoria !== 'avatar' ? generatedItem.cssClass : ''}`} 
-                              style={isItemBlendable ? { mixBlendMode: 'screen' } : {}}
-                            />
-                         )}
-
-                         {generatedItem.categoria === 'nickname' && (
-                           <div className={`absolute inset-0 m-auto flex items-center justify-center font-black text-2xl md:text-3xl z-20 ${generatedItem.cssClass}`}>AdminManga</div>
-                         )}
+                         {generatedItem.categoria === 'nickname' && <div className={`font-black text-2xl md:text-3xl z-20 ${generatedItem.cssClass}`}>AdminManga</div>}
                       </div>
                     </div>
-
-                    <div className="w-full bg-gray-900 p-5 sm:p-6 rounded-2xl border border-gray-800 flex flex-col">
-                       <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
-                         <div className="w-full sm:flex-1">
-                            <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-1">
-                              <h2 className="text-xl sm:text-2xl font-black text-white">{generatedItem.nome}</h2>
-                              <span className={`text-[10px] sm:text-xs font-black px-2 py-1 rounded uppercase ${generatedItem.raridade === 'lendario' ? 'bg-yellow-500/20 text-yellow-500' : generatedItem.raridade === 'mitico' ? 'bg-red-500/20 text-red-500' : generatedItem.raridade === 'epico' ? 'bg-purple-500/20 text-purple-500' : generatedItem.raridade === 'raro' ? 'bg-blue-500/20 text-blue-500' : 'bg-gray-800 text-gray-300'}`}>
-                                {generatedItem.raridade}
-                              </span>
-                            </div>
-                            <p className="text-gray-400 text-sm mt-2 line-clamp-3 sm:line-clamp-none">{generatedItem.descricao}</p>
-                         </div>
-                         
-                         <div className="w-full sm:w-auto text-left sm:text-right mt-2 sm:mt-0 pt-3 sm:pt-0 border-t border-gray-800 sm:border-0 shrink-0">
-                            <span className="text-[10px] sm:text-xs font-bold text-gray-500 uppercase tracking-widest block mb-1">Preço Final (Moedas)</span>
-                            <div className="flex items-center justify-start sm:justify-end gap-2">
-                               <Coins className="w-5 h-5 sm:w-6 sm:h-6 text-yellow-500"/>
-                               <input type="number" min="0" value={generatedItem.preco} onChange={(e) => setGeneratedItem({...generatedItem, preco: e.target.value})} className="bg-gray-950 border border-gray-700 rounded-lg px-3 py-1.5 text-white font-black text-xl w-28 outline-none focus:border-purple-500 transition-colors text-right" />
-                            </div>
-                         </div>
+                    <div className="w-full bg-gray-900 p-6 rounded-2xl border border-gray-800 flex flex-col">
+                       <div className="flex justify-between items-start mb-6">
+                         <div><h2 className="text-xl font-black text-white">{generatedItem.nome}</h2><p className="text-gray-500 text-sm mt-1">{generatedItem.descricao}</p></div>
+                         <div className="text-right"><span className="text-xs text-gray-500 block mb-1">Preço</span><span className="text-yellow-500 font-black text-xl flex items-center gap-1"><Coins className="w-4 h-4"/> {generatedItem.preco}</span></div>
                        </div>
-                       
-                       <div className="mt-5 sm:mt-6 pt-5 sm:pt-6 border-t border-gray-800 flex flex-col sm:flex-row gap-3 sm:gap-4">
-                          <button onClick={() => setGeneratedItem(null)} disabled={isSaving} className="w-full sm:w-1/3 bg-gray-800 hover:bg-gray-700 text-white font-bold py-3.5 sm:py-4 rounded-xl transition-colors">Descartar</button>
-                          <button onClick={handleSaveToStore} disabled={isSaving} className="w-full sm:w-2/3 bg-green-600 hover:bg-green-500 text-white font-black py-3.5 sm:py-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-green-600/30">
-                            {isSaving ? <Loader2 className="w-5 h-5 animate-spin"/> : <ShoppingBag className="w-5 h-5"/>}
-                            {isSaving ? statusMsg : 'Salvar Oficialmente na Loja'}
-                          </button>
+                       <div className="flex gap-4">
+                          <button onClick={()=>setGeneratedItem(null)} className="flex-1 bg-gray-800 text-white font-bold py-4 rounded-xl">Descartar</button>
+                          <button onClick={handleSaveToStore} className="flex-[2] bg-green-600 text-white font-black py-4 rounded-xl shadow-lg">Salvar na Loja</button>
                        </div>
                     </div>
                  </div>
