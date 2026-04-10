@@ -75,7 +75,7 @@ function AdminPanel() {
           <div className="pt-6 pb-2 text-xs font-black text-gray-600 uppercase tracking-widest pl-2">Capítulos</div>
           <MenuButton icon={UploadCloud} label="Upload em Massa" active={currentView === 'upload_capitulo'} onClick={() => handleNavigate('upload_capitulo')} />
           <div className="pt-6 pb-2 text-xs font-black text-gray-600 uppercase tracking-widest pl-2">Loja & Cosméticos</div>
-          <MenuButton icon={Wand2} label="IA Geradora" active={currentView === 'loja_ia'} onClick={() => handleNavigate('loja_ia')} />
+          <MenuButton icon={Wand2} label="IA Geradora Leonardo" active={currentView === 'loja_ia'} onClick={() => handleNavigate('loja_ia')} />
           <MenuButton icon={ShoppingBag} label="Gerenciar Loja" active={currentView === 'loja'} onClick={() => handleNavigate('loja')} />
         </nav>
         <div className="p-4 border-t border-gray-800 bg-gray-900">
@@ -924,41 +924,27 @@ function LojaIAView() {
   const handleGenerate = async () => {
     setIsGenerating(true);
     setGeneratedItem(null);
-    setStatusMsg('A IA está a arquitetar o item...');
+    setStatusMsg('Conectando ao Leonardo.ai...');
 
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    const geminiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    const leonardoKey = import.meta.env.VITE_LEONARDO_API_KEY;
 
-    if (!apiKey) {
-      alert("ERRO: A chave VITE_GEMINI_API_KEY não foi encontrada!");
-      setIsGenerating(false);
-      setStatusMsg('');
-      return;
+    if (!leonardoKey) {
+      alert("Erro: Adicione a chave VITE_LEONARDO_API_KEY na Vercel!");
+      setIsGenerating(false); return;
     }
-
-    // URL ATUALIZADA 2026: Usando snake_case nos campos JSON internos
-    const textModelUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-3-flash:generateContent?key=${apiKey}`;
-
-    const finalPrompt = prompt.trim() === '' ? 'Invente um tema totalmente aleatório e criativo.' : prompt;
-
-    let regrasEspecificas = "";
-    if (categoria === 'capa_fundo') {
-        regrasEspecificas = "CRÍTICO: FUNDO (Background). NO CHARACTERS.";
-    } else if (categoria === 'moldura') {
-        regrasEspecificas = "CRÍTICO: MOLDURA circular 2D neon sobre FUNDO #000000.";
-    } else if (categoria === 'avatar') {
-        regrasEspecificas = "CRÍTICO: Personagem sobre fundo BRANCO #FFFFFF. CSS background incrível.";
-    } else if (categoria === 'nickname') {
-        regrasEspecificas = "CRÍTICO: Efeito de texto. imagePrompt: 'NONE'.";
-    }
-
-    const systemInstruction = `Você é diretor de arte. Crie cosmético para '${categoria}'. Pedido: '${finalPrompt}'. ${regrasEspecificas}`;
 
     try {
-      const response = await fetch(textModelUrl, {
+      // 1. USAR GEMINI PARA CRIAR O NOME E CSS (É MAIS RÁPIDO)
+      setStatusMsg('Gemini está criando o design...');
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-3-flash:generateContent?key=${geminiKey}`;
+      
+      const systemInstruction = `Diretor de Arte Manga Infinity. Crie cosmético '${categoria}'. Pedido: '${prompt}'. Se for avatar, gere background CSS. Responda apenas JSON.`;
+
+      const geminiRes = await fetch(geminiUrl, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          // CAMPOS CORRIGIDOS PARA SNAKE_CASE (EXIGÊNCIA DA API V1)
+          contents: [{ parts: [{ text: prompt || 'Tema aleatório' }] }],
           system_instruction: { parts: [{ text: systemInstruction }] },
           generation_config: {
             response_mime_type: "application/json",
@@ -978,31 +964,51 @@ function LojaIAView() {
         })
       });
 
-      const textData = await response.json();
+      const geminiData = await geminiRes.json();
+      const aiResult = JSON.parse(geminiData.candidates[0].content.parts[0].text);
 
-      if (textData.error) {
-        throw new Error(`Recusa da API Google: ${textData.error.message}`);
-      }
+      let finalImageUrl = "";
       
-      const aiResult = JSON.parse(textData.candidates[0].content.parts[0].text);
-
-      let base64Image = "";
       if (aiResult.imagePrompt && aiResult.imagePrompt !== "NONE") {
-         setStatusMsg('A desenhar a arte...');
-         try {
-           const cleanPrompt = encodeURIComponent(aiResult.imagePrompt);
-           const imgRes = await fetch(`https://image.pollinations.ai/prompt/${cleanPrompt}?nologo=true`);
-           const imgBlob = await imgRes.blob();
-           const reader = new FileReader();
-           reader.readAsDataURL(imgBlob);
-           base64Image = await new Promise(resolve => { reader.onloadend = () => resolve(reader.result); });
-         } catch (imgErr) {
-           throw new Error("Erro na imagem: " + imgErr.message);
+         setStatusMsg('Leonardo.ai está pintando a arte...');
+         
+         // 2. PEDIR IMAGEM PARA LEONARDO.AI (LÓGICA DE GERAÇÃO)
+         const leonardoRes = await fetch('https://cloud.leonardo.ai/api/rest/v1/generations', {
+            method: 'POST',
+            headers: {
+              'accept': 'application/json',
+              'content-type': 'application/json',
+              'authorization': `Bearer ${leonardoKey}`
+            },
+            body: JSON.stringify({
+              prompt: `high quality anime style, masterpiece, ${aiResult.imagePrompt}, flat colors, clean lines`,
+              modelId: "b24e0cca-995d-43b9-ad31-80a56658097f", // Leonardo Anime XL
+              width: 512, height: 512, num_images: 1, transparency: "DISABLED"
+            })
+         });
+
+         const leoData = await leonardoRes.json();
+         const generationId = leoData.sdGenerationJob.generationId;
+
+         // 3. ESPERAR A IMAGEM FICAR PRONTA (POLLING)
+         let ready = false;
+         let attempts = 0;
+         while(!ready && attempts < 10) {
+            await new Promise(r => setTimeout(r, 3000)); // Espera 3 seg
+            const checkRes = await fetch(`https://cloud.leonardo.ai/api/rest/v1/generations/${generationId}`, {
+               headers: { 'authorization': `Bearer ${leonardoKey}` }
+            });
+            const checkData = await checkRes.json();
+            if(checkData.generations_by_pk.status === 'COMPLETE') {
+               finalImageUrl = checkData.generations_by_pk.generated_images[0].url;
+               ready = true;
+            }
+            attempts++;
+            setStatusMsg(`Finalizando arte... (${attempts * 10}%)`);
          }
       }
 
       const raridadeFinal = raridadeSelecionada !== 'aleatorio' ? raridadeSelecionada : aiResult.raridade;
-      const finalPrice = TABELA_PRECOS[raridadeFinal] || 1000;
       const uniqueId = "item_" + Date.now();
 
       setGeneratedItem({
@@ -1011,19 +1017,18 @@ function LojaIAView() {
         categoria: categoria,
         descricao: aiResult.descricao,
         raridade: raridadeFinal,
-        preco: finalPrice,
+        preco: TABELA_PRECOS[raridadeFinal] || 1000,
         css: aiResult.css,
         keyframes: aiResult.keyframes || "",
         cssClass: uniqueId,
-        previewBase64: base64Image,
+        previewBase64: finalImageUrl, // Leonardo entrega URL direta
         imagePrompt: aiResult.imagePrompt
       });
 
     } catch (error) {
-      alert("Erro Detalhado: " + error.message);
+      alert("Erro Leonardo: " + error.message);
     } finally {
-      setIsGenerating(false);
-      setStatusMsg('');
+      setIsGenerating(false); setStatusMsg('');
     }
   };
 
@@ -1031,13 +1036,15 @@ function LojaIAView() {
     if(!generatedItem) return;
     setIsSaving(true);
     try {
-       let finalImageUrl = "";
-       if (generatedItem.previewBase64) {
+       let finalImageUrl = generatedItem.previewBase64;
+       
+       // Se for avatar, ainda usamos Cloudinary para processar o Remove.bg se necessário
+       if (generatedItem.categoria === 'avatar' || generatedItem.categoria === 'moldura') {
+          setStatusMsg('Processando imagem na nuvem...');
           const res = await fetch(generatedItem.previewBase64);
           let blob = await res.blob();
-          if (generatedItem.categoria === 'avatar') {
-             blob = await removeBackgroundWithRemoveBg(blob);
-          }
+          if (generatedItem.categoria === 'avatar') blob = await removeBackgroundWithRemoveBg(blob);
+          
           const file = new File([blob], `${generatedItem.id}.png`, { type: "image/png" });
           let cloudUrl = await uploadToCloudinary(file);
           let transform = generatedItem.categoria === 'moldura' ? 'e_make_transparent:30:black' : 'none';
@@ -1045,25 +1052,16 @@ function LojaIAView() {
        }
 
        await setDoc(doc(db, "loja_itens", generatedItem.id), {
-          nome: generatedItem.nome,
-          categoria: generatedItem.categoria,
-          descricao: generatedItem.descricao,
-          raridade: generatedItem.raridade,
-          preco: Number(generatedItem.preco), 
-          cssClass: generatedItem.cssClass,
-          css: generatedItem.css,
-          animacao: generatedItem.keyframes, 
-          preview: finalImageUrl, 
-          createdAt: Date.now()
+          nome: generatedItem.nome, categoria: generatedItem.categoria,
+          descricao: generatedItem.descricao, raridade: generatedItem.raridade,
+          preco: Number(generatedItem.preco), cssClass: generatedItem.cssClass,
+          css: generatedItem.css, animacao: generatedItem.keyframes, 
+          preview: finalImageUrl, createdAt: Date.now()
        });
 
-       alert("Salvo com sucesso!");
+       alert("Cosmético Leonardo.ai salvo com sucesso!");
        setGeneratedItem(null);
-    } catch(err) {
-       alert("Erro ao salvar: " + err.message);
-    } finally {
-       setIsSaving(false);
-    }
+    } catch(err) { alert("Erro ao salvar: " + err.message); } finally { setIsSaving(false); }
   };
 
   const isItemBlendable = generatedItem && generatedItem.categoria === 'moldura';
@@ -1074,7 +1072,8 @@ function LojaIAView() {
       <div className="bg-gray-900 border border-gray-800 p-6 md:p-10 rounded-[2rem] shadow-xl space-y-8 relative overflow-hidden">
         <div className="absolute -top-40 -right-40 w-96 h-96 bg-purple-600/20 rounded-full blur-[100px] pointer-events-none"></div>
         <div className="relative z-10">
-          <h3 className="text-2xl md:text-3xl font-black text-white flex items-center gap-3 mb-2"><Wand2 className="w-8 h-8 text-purple-500" /> IA Geradora 2026</h3>
+          <h3 className="text-2xl md:text-3xl font-black text-white flex items-center gap-3 mb-2"><Wand2 className="w-8 h-8 text-purple-500" /> Leonardo.ai Geradora</h3>
+          <p className="text-gray-400">Qualidade Premium para o Manga Infinity.</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 relative z-10">
@@ -1101,12 +1100,12 @@ function LojaIAView() {
 
              <div>
                <label className="block text-sm font-bold text-gray-400 mb-2">Prompt</label>
-               <textarea value={prompt} onChange={e=>setPrompt(e.target.value)} placeholder="Ex: Sasuke Uchiha" rows="4" className="w-full bg-gray-900 p-4 rounded-xl border border-gray-800 text-white outline-none resize-none" />
+               <textarea value={prompt} onChange={e=>setPrompt(e.target.value)} placeholder="Ex: Guerreiro das sombras com aura roxa" rows="4" className="w-full bg-gray-900 p-4 rounded-xl border border-gray-800 text-white outline-none resize-none" />
              </div>
 
              <button onClick={handleGenerate} disabled={isGenerating || isSaving} className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white py-4 rounded-xl font-black flex items-center justify-center gap-3 shadow-lg disabled:opacity-50">
                 {isGenerating ? <Loader2 className="w-6 h-6 animate-spin"/> : <Sparkles className="w-6 h-6" />}
-                {isGenerating ? statusMsg : 'Gerar Magia'}
+                {isGenerating ? statusMsg : 'Gerar Arte Leonardo'}
              </button>
           </div>
 
@@ -1121,7 +1120,7 @@ function LojaIAView() {
                     <div className="flex-1 flex items-center justify-center w-full relative mb-8">
                       <div className={`relative w-48 h-48 md:w-64 md:h-64 flex items-center justify-center bg-gray-900 border border-gray-800 shadow-2xl overflow-hidden ${isCircularPreview ? 'rounded-full' : 'rounded-3xl'} ${generatedItem.categoria === 'avatar' ? generatedItem.cssClass : ''}`}>
                          {generatedItem.previewBase64 && (
-                            <img src={generatedItem.previewBase64} className={`absolute inset-0 m-auto w-full h-full object-cover z-20 pointer-events-none ${generatedItem.categoria !== 'avatar' ? generatedItem.cssClass : ''}`} style={isItemBlendable ? { mixBlendMode: 'screen' } : {}}/>
+                            <img src={generatedItem.previewBase64} crossOrigin="anonymous" className={`absolute inset-0 m-auto w-full h-full object-cover z-20 pointer-events-none ${generatedItem.categoria !== 'avatar' ? generatedItem.cssClass : ''}`} style={isItemBlendable ? { mixBlendMode: 'screen' } : {}}/>
                          )}
                          {generatedItem.categoria === 'nickname' && <div className={`font-black text-2xl md:text-3xl z-20 ${generatedItem.cssClass}`}>AdminManga</div>}
                       </div>
