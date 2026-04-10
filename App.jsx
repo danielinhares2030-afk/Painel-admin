@@ -6,6 +6,7 @@ import {
   ShoppingBag, Tag, Coins, Wand2, Sparkles, Palette, Layers
 } from 'lucide-react';
 
+// IMPORTAÇÕES DA RAIZ
 import { auth, db } from './firebase';
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "firebase/auth";
 import { collection, doc, setDoc, getDocs, deleteDoc, updateDoc } from "firebase/firestore";
@@ -925,9 +926,17 @@ function LojaIAView() {
     setGeneratedItem(null);
     setStatusMsg('A IA está a arquitetar o item...');
 
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY; // Chave dedicada e correta da IA
-    const textModelUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
-    const imageModelUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${apiKey}`;
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+
+    if (!apiKey) {
+      alert("ERRO: A chave VITE_GEMINI_API_KEY não foi encontrada! Verifique as variáveis na Vercel e faça Redeploy sem cache.");
+      setIsGenerating(false);
+      setStatusMsg('');
+      return;
+    }
+
+    // Usando o modelo super estável da Google
+    const textModelUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
     const finalPrompt = prompt.trim() === '' ? 'Invente um tema totalmente aleatório e criativo.' : prompt;
 
@@ -935,9 +944,9 @@ function LojaIAView() {
     if (categoria === 'capa_fundo') {
         regrasEspecificas = "CRÍTICO: O usuário quer um FUNDO (Background). É PROIBIDO desenhar personagens. ImagePrompt: 'Scenery, landscape, background only, NO CHARACTERS'.";
     } else if (categoria === 'moldura') {
-        regrasEspecificas = "CRÍTICO: MOLDURA DE AVATAR. Objeto 2D plano. CÍRCULO PERFEITO tocando as bordas da tela (sem margens). OBRIGATÓRIO: Cores BRILHANTES sobre um FUNDO 100% PRETO SÓLIDO (#000000). ImagePrompt: '2D flat UI asset, circular avatar profile frame touching the edges of the canvas, zero margins, perfect circle shape, bright glowing neon colors, PURE PITCH BLACK BACKGROUND #000000, empty center, NO WHITE BACKGROUND'.";
+        regrasEspecificas = "CRÍTICO: MOLDURA DE AVATAR. Objeto 2D plano. CÍRCULO PERFEITO tocando as bordas da tela. OBRIGATÓRIO: Cores BRILHANTES sobre um FUNDO 100% PRETO SÓLIDO (#000000). ImagePrompt: '2D flat UI asset, circular avatar profile frame touching the edges of the canvas, zero margins, perfect circle shape, bright glowing neon colors, PURE PITCH BLACK BACKGROUND #000000, empty center, NO WHITE BACKGROUND'.";
     } else if (categoria === 'avatar') {
-        regrasEspecificas = "CRÍTICO MAXIMO: AVATAR. O segredo aqui é separar a imagem do fundo! Na imagem (imagePrompt), você DEVE gerar apenas o personagem sobre um fundo 100% BRANCO SÓLIDO E VAZIO. É EXPRESSAMENTE PROIBIDO desenhar círculos, luas, emblemas ou auras atrás do personagem na imagem. Em contrapartida, no código 'css', você DEVE adicionar uma propriedade 'background' incrível (ex: radial-gradient, linear-gradient) que combine com o personagem. A nossa API vai apagar o fundo branco da imagem e o seu fundo CSS vai brilhar por trás de forma perfeita! ImagePrompt OBRIGATÓRIO: 'Close-up portrait of [NOME DO PERSONAGEM, se pedido], perfectly centered, authentic 2D anime style, masterpiece, exactly two normal eyes, clean face, PURE SOLID WHITE BACKGROUND #FFFFFF, completely empty background, NO colored circles behind character, NO geometric shapes, NO halos, NO auras'.";
+        regrasEspecificas = "CRÍTICO MAXIMO: AVATAR. Gere apenas o personagem sobre um fundo 100% BRANCO SÓLIDO. ImagePrompt: 'Close-up portrait of [NOME], perfectly centered, authentic 2D anime style, clean face, PURE SOLID WHITE BACKGROUND #FFFFFF, completely empty background'.";
     } else if (categoria === 'nickname') {
         regrasEspecificas = "CRÍTICO: O usuário quer um EFEITO PARA NICKNAME (Texto). NÃO DEVE GERAR IMAGEM! OBRIGATÓRIO: Defina o campo 'imagePrompt' EXATAMENTE com a palavra 'NONE'.";
     }
@@ -949,19 +958,8 @@ function LojaIAView() {
 
     const systemInstruction = `Você é o diretor de arte de um App de Mangá. Crie um item cosmético único da categoria '${categoria}'.
       Pedido do usuário: '${finalPrompt}'.
-      
-      REGRAS DE TEMA: NÃO crie tudo com o tema "galáxia", "universo" ou "infinito". Seja criativo.
-      
       ${regrasEspecificas}
-
-      REGRAS DO CSS E ANIMAÇÃO: 
-      - O 'css' deve conter APENAS propriedades de ESTILO VISUAL (color, border, box-shadow, text-shadow, filter, background).
-      - Para AVATARES, você DEVE gerar um 'background' no CSS (ex: linear-gradient) para servir de fundo ao personagem.
-      - PROIBIDO usar propriedades de LAYOUT no CSS (como width, height, margin, position, display).
-      - Se for animado, OBRIGATORIAMENTE crie animações no campo 'keyframes' e aplique na string do 'css'.
-
-      REGRAS DE FIDELIDADE EXTREMA E COPYRIGHT: O usuário odeia personagens genéricos. Se ele pedir um personagem de Anime, Mangá ou Manhwa (ex: Sasuke, Naruto, Jinwoo, Gojo), VOCÊ É OBRIGADO a gerar o personagem EXATAMENTE como ele é, COM AS ROUPAS, OLHOS (ex: Sharingan) E CABELO ORIGINAIS. O gerador de imagens pode bloquear nomes com direitos de autor, portanto, no 'imagePrompt', use o NOME REAL do personagem, mas também inclua uma descrição visual absurdamente detalhada de como ele é, para garantir que ele saia perfeito se o nome for ignorado.
-      
+      O 'css' deve conter APENAS propriedades de ESTILO VISUAL. Para AVATARES, gere um 'background' no CSS (ex: linear-gradient).
       ${regraRaridade}`;
 
     try {
@@ -978,9 +976,9 @@ function LojaIAView() {
                 nome: { type: "STRING" },
                 descricao: { type: "STRING" },
                 raridade: { type: "STRING" },
-                css: { type: "STRING", description: "Propriedades visuais. IMPORTANTE: Para avatares, forneça aqui um background (ex: linear-gradient) para ser o fundo!" },
+                css: { type: "STRING" },
                 keyframes: { type: "STRING" },
-                imagePrompt: { type: "STRING", description: "Em INGLÊS. Se a categoria for nickname, defina APENAS como 'NONE'." }
+                imagePrompt: { type: "STRING" }
               },
               required: ["nome", "descricao", "raridade", "css", "imagePrompt"]
             }
@@ -989,29 +987,31 @@ function LojaIAView() {
       });
 
       const textData = await response.json();
+
+      if (textData.error) {
+        throw new Error(`Recusa da API Google: ${textData.error.message}`);
+      }
+      if (!textData.candidates || textData.candidates.length === 0) {
+        throw new Error("A API da Google não devolveu candidatos válidos.");
+      }
+
       const aiResult = JSON.parse(textData.candidates[0].content.parts[0].text);
 
       let base64Image = "";
-      
       if (aiResult.imagePrompt && aiResult.imagePrompt !== "NONE") {
-         setStatusMsg('A desenhar a arte com precisão...');
+         setStatusMsg('A desenhar a arte...');
          try {
-           const imgRes = await fetch(imageModelUrl, {
-              method: "POST", headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ instances: { prompt: aiResult.imagePrompt }, parameters: { sampleCount: 1 } })
+           const cleanPrompt = encodeURIComponent(aiResult.imagePrompt);
+           const imgRes = await fetch(`https://image.pollinations.ai/prompt/${cleanPrompt}?nologo=true`);
+           const imgBlob = await imgRes.blob();
+           
+           const reader = new FileReader();
+           reader.readAsDataURL(imgBlob);
+           base64Image = await new Promise(resolve => {
+              reader.onloadend = () => resolve(reader.result);
            });
-           const imgData = await imgRes.json();
-           if(imgData.predictions && imgData.predictions[0]) {
-              base64Image = `data:image/png;base64,${imgData.predictions[0].bytesBase64Encoded}`;
-           } else {
-              throw new Error("A imagem foi bloqueada. Tente descrever de forma mais genérica.");
-           }
          } catch (imgErr) {
-           console.error("Erro ao gerar imagem:", imgErr);
-           alert(imgErr.message || "Ocorreu um erro ao gerar a imagem.");
-           setIsGenerating(false);
-           setStatusMsg('');
-           return; 
+           throw new Error("Erro ao desenhar a imagem: " + imgErr.message);
          }
       }
 
@@ -1034,7 +1034,7 @@ function LojaIAView() {
       });
 
     } catch (error) {
-      alert("Erro ao conectar com a IA: " + error.message);
+      alert("Erro Detalhado: " + error.message);
     } finally {
       setIsGenerating(false);
       setStatusMsg('');
@@ -1170,9 +1170,7 @@ function LojaIAView() {
                  <div className="w-full h-full flex flex-col animate-in zoom-in-95 duration-500">
                     <style dangerouslySetInnerHTML={{__html: `.${generatedItem.cssClass} { ${generatedItem.css} } ${generatedItem.keyframes}`}} />
 
-                    {/* CAIXA DE PREVIEW REDONDA SEMPRE PARA AVATAR E MOLDURA */}
                     <div className="flex-1 flex items-center justify-center w-full relative mb-6 md:mb-8 mt-4 md:mt-0">
-                      {/* Adicionamos a classe CSS no próprio wrapper para o Fundo Animado aparecer por trás do Avatar recortado! */}
                       <div className={`relative w-48 h-48 md:w-64 md:h-64 flex items-center justify-center bg-gray-900 border border-gray-800 shadow-2xl overflow-hidden group ${isCircularPreview ? 'rounded-full' : 'rounded-3xl'} ${generatedItem.categoria === 'avatar' ? generatedItem.cssClass : ''}`}>
                          
                          {generatedItem.categoria === 'capa_fundo' && generatedItem.previewBase64 && (
@@ -1185,7 +1183,6 @@ function LojaIAView() {
                            </div>
                          )}
 
-                         {/* Aplica Mix-Blend Screen na Preview e usa h-full w-full cover para as molduras/avatares preencherem tudo */}
                          {generatedItem.previewBase64 && generatedItem.categoria !== 'capa_fundo' && (
                             <img 
                               src={generatedItem.previewBase64} 
