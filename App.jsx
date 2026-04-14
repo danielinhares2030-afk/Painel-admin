@@ -923,20 +923,11 @@ function LojaIAView() {
   const handleGenerate = async () => {
     setIsGenerating(true);
     setGeneratedItem(null);
-    setStatusMsg('A conectar com as IAs...');
+    setStatusMsg('A IA está a arquitetar o item...');
 
-    // CHAVES DEFINIDAS AQUI
-    const geminiKey = import.meta.env.VITE_GEMINI_API_KEY// Usando a chave que estiver configurada
-    const leonardoKey = import.meta.env.VITE_LEONARDO_API_KEY// Usando a chave que estiver configurada
-
-    if (!geminiKey || !leonardoKey) {
-      alert("Erro: Certifique-se de que VITE_GEMINI_API_KEY e VITE_LEONARDO_API_KEY estão configuradas na Vercel.");
-      setIsGenerating(false);
-      setStatusMsg('');
-      return;
-    }
-
-    const textModelUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${geminiKey}`;
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY; 
+    const textModelUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+    const imageModelUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${apiKey}`;
 
     const finalPrompt = prompt.trim() === '' ? 'Invente um tema totalmente aleatório e criativo.' : prompt;
 
@@ -958,19 +949,26 @@ function LojaIAView() {
 
     const systemInstruction = `Você é o diretor de arte de um App de Mangá. Crie um item cosmético único da categoria '${categoria}'.
       Pedido do usuário: '${finalPrompt}'.
+      
+      REGRAS DE TEMA: NÃO crie tudo com o tema "galáxia", "universo" ou "infinito". Seja criativo.
+      
       ${regrasEspecificas}
+
       REGRAS DO CSS E ANIMAÇÃO: 
       - O 'css' deve conter APENAS propriedades de ESTILO VISUAL (color, border, box-shadow, text-shadow, filter, background).
       - Para AVATARES, você DEVE gerar um 'background' no CSS (ex: linear-gradient) para servir de fundo ao personagem.
       - PROIBIDO usar propriedades de LAYOUT no CSS (como width, height, margin, position, display).
       - Se for animado, OBRIGATORIAMENTE crie animações no campo 'keyframes' e aplique na string do 'css'.
+
+      REGRAS DE FIDELIDADE EXTREMA E COPYRIGHT: O usuário odeia personagens genéricos. Se ele pedir um personagem de Anime, Mangá ou Manhwa (ex: Sasuke, Naruto, Jinwoo, Gojo), VOCÊ É OBRIGADO a gerar o personagem EXATAMENTE como ele é, COM AS ROUPAS, OLHOS (ex: Sharingan) E CABELO ORIGINAIS. O gerador de imagens pode bloquear nomes com direitos de autor, portanto, no 'imagePrompt', use o NOME REAL do personagem, mas também inclua uma descrição visual absurdamente detalhada de como ele é, para garantir que ele saia perfeito se o nome for ignorado.
+      
       ${regraRaridade}`;
 
     try {
       const response = await fetch(textModelUrl, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt || 'Gerar item' }] }],
+          contents: [{ parts: [{ text: prompt }] }],
           systemInstruction: { parts: [{ text: systemInstruction }] },
           generationConfig: {
             responseMimeType: "application/json",
@@ -980,9 +978,9 @@ function LojaIAView() {
                 nome: { type: "STRING" },
                 descricao: { type: "STRING" },
                 raridade: { type: "STRING" },
-                css: { type: "STRING" },
+                css: { type: "STRING", description: "Propriedades visuais. IMPORTANTE: Para avatares, forneça aqui um background (ex: linear-gradient) para ser o fundo!" },
                 keyframes: { type: "STRING" },
-                imagePrompt: { type: "STRING" }
+                imagePrompt: { type: "STRING", description: "Em INGLÊS. Se a categoria for nickname, defina APENAS como 'NONE'." }
               },
               required: ["nome", "descricao", "raridade", "css", "imagePrompt"]
             }
@@ -990,72 +988,49 @@ function LojaIAView() {
         })
       });
 
-      const textData = await response.json();
-
-      if (textData.error) {
-         throw new Error(`Erro API Gemini: ${textData.error.message}`);
+      if (!response.ok) {
+         const errorData = await response.json();
+         throw new Error(errorData.error?.message || "Erro API Gemini");
       }
 
-      // VERIFICAÇÃO SEGURA DE TEXTO
+      const textData = await response.json();
+      
       if (!textData?.candidates?.length) {
-        throw new Error("A IA não retornou resposta (texto vazio).");
+         throw new Error("A IA não retornou resposta (texto vazio).");
       }
 
       const firstCandidate = textData.candidates[0];
       const aiResult = JSON.parse(firstCandidate.content.parts[0].text);
 
-      let finalImageUrl = "";
+      let base64Image = "";
       
       if (aiResult.imagePrompt && aiResult.imagePrompt !== "NONE") {
-         setStatusMsg('Leonardo.ai está a pintar a arte...');
-         
-         const leoRes = await fetch('https://cloud.leonardo.ai/api/rest/v1/generations', {
-            method: 'POST',
-            headers: {
-              'accept': 'application/json',
-              'content-type': 'application/json',
-              'authorization': `Bearer ${leonardoKey}`
-            },
-            body: JSON.stringify({
-              prompt: `high quality anime style, masterpiece, flat colors, clean lines, ${aiResult.imagePrompt}`,
-              modelId: "b24e0cca-995d-43b9-ad31-80a56658097f", // Leonardo Anime XL
-              width: 512, height: 512, num_images: 1, transparency: "DISABLED"
-            })
-         });
+         setStatusMsg('A desenhar a arte com precisão...');
+         try {
+           const imgRes = await fetch(imageModelUrl, {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ instances: [{ prompt: aiResult.imagePrompt }], parameters: { sampleCount: 1 } })
+           });
 
-         const leoData = await leoRes.json();
+           if (!imgRes.ok) {
+              const errorData = await imgRes.json();
+              throw new Error(errorData.error?.message || "Erro API Imagen");
+           }
 
-         if (leoData.error) {
-            throw new Error(`Erro Leonardo.ai: ${leoData.error}`);
-         }
+           const imgData = await imgRes.json();
+           
+           if (!imgData?.predictions?.length) {
+              throw new Error("A IA não retornou a imagem. O prompt pode ter sido bloqueado.");
+           }
 
-         if (!leoData?.sdGenerationJob?.generationId) {
-            throw new Error("Leonardo.ai falhou ao iniciar o desenho.");
-         }
-         
-         const generationId = leoData.sdGenerationJob.generationId;
-
-         let ready = false;
-         let attempts = 0;
-         while(!ready && attempts < 15) {
-            await new Promise(r => setTimeout(r, 3000));
-            const checkRes = await fetch(`https://cloud.leonardo.ai/api/rest/v1/generations/${generationId}`, {
-               headers: { 'authorization': `Bearer ${leonardoKey}` }
-            });
-            const checkData = await checkRes.json();
-            
-            if(checkData?.generations_by_pk?.status === 'COMPLETE') {
-               // VERIFICAÇÃO SEGURA DE IMAGEM
-               if (!checkData.generations_by_pk.generated_images?.length) {
-                  throw new Error("Leonardo.ai terminou, mas não retornou nenhuma imagem.");
-               }
-               finalImageUrl = checkData.generations_by_pk.generated_images[0].url;
-               ready = true;
-            } else if (checkData?.generations_by_pk?.status === 'FAILED') {
-               throw new Error("Leonardo.ai falhou ao gerar a imagem. Pode estar sem créditos.");
-            }
-            attempts++;
-            setStatusMsg(`A processar arte... (${attempts * 7}%)`);
+           const firstPrediction = imgData.predictions[0];
+           base64Image = `data:image/png;base64,${firstPrediction.bytesBase64Encoded}`;
+         } catch (imgErr) {
+           console.error("Erro ao gerar imagem:", imgErr);
+           alert(imgErr.message || "Ocorreu um erro ao gerar a imagem.");
+           setIsGenerating(false);
+           setStatusMsg('');
+           return; 
          }
       }
 
@@ -1073,12 +1048,11 @@ function LojaIAView() {
         css: aiResult.css,
         keyframes: aiResult.keyframes || "",
         cssClass: uniqueId,
-        previewBase64: finalImageUrl,
+        previewBase64: base64Image,
         imagePrompt: aiResult.imagePrompt
       });
 
     } catch (error) {
-      // PROTEÇÃO DE ECRÃ - ERRO AMIGÁVEL
       alert("Erro ao conectar com a IA: " + error.message);
     } finally {
       setIsGenerating(false);
@@ -1089,35 +1063,34 @@ function LojaIAView() {
   const handleSaveToStore = async () => {
     if(!generatedItem) return;
     setIsSaving(true);
-    setStatusMsg('A processar e guardar na nuvem...');
+    setStatusMsg('Processando imagem...');
 
     try {
-       let finalCloudinaryUrl = "";
-       
+       let finalImageUrl = "";
        if (generatedItem.previewBase64) {
           const res = await fetch(generatedItem.previewBase64);
-          if (!res.ok) throw new Error("Falha ao transferir imagem do Leonardo.ai para o Cloudinary.");
           let blob = await res.blob();
           
           if (generatedItem.categoria === 'avatar') {
-             setStatusMsg('A remover o fundo com Remove.bg...');
+             setStatusMsg('A remover o fundo do ecrã branco com Remove.bg...');
              try {
                 blob = await removeBackgroundWithRemoveBg(blob);
              } catch(removeErr) {
                 console.warn("Remove.bg failed:", removeErr);
-                alert("Aviso: A API do Remove.bg falhou. A imagem será salva com o fundo original.");
+                alert("Aviso: A API do Remove.bg falhou (" + removeErr.message + "). A imagem será salva com o fundo original.");
              }
           }
 
-          setStatusMsg('A enviar para o Cloudinary...');
           const file = new File([blob], `${generatedItem.id}.png`, { type: "image/png" });
+          
+          setStatusMsg('A guardar na Loja...');
           let cloudUrl = await uploadToCloudinary(file);
           
           let filtroOculto = 'none';
           if (generatedItem.categoria === 'moldura') {
             filtroOculto = 'e_make_transparent:30:black';
           }
-          finalCloudinaryUrl = applyCloudinaryTransform(cloudUrl, filtroOculto);
+          finalImageUrl = applyCloudinaryTransform(cloudUrl, filtroOculto);
        }
 
        await setDoc(doc(db, "loja_itens", generatedItem.id), {
@@ -1129,7 +1102,7 @@ function LojaIAView() {
           cssClass: generatedItem.cssClass,
           css: generatedItem.css,
           animacao: generatedItem.keyframes, 
-          preview: finalCloudinaryUrl, 
+          preview: finalImageUrl, 
           createdAt: Date.now()
        });
 
@@ -1216,9 +1189,7 @@ function LojaIAView() {
                  <div className="w-full h-full flex flex-col animate-in zoom-in-95 duration-500">
                     <style dangerouslySetInnerHTML={{__html: `.${generatedItem.cssClass} { ${generatedItem.css} } ${generatedItem.keyframes}`}} />
 
-                    {/* CAIXA DE PREVIEW REDONDA SEMPRE PARA AVATAR E MOLDURA */}
                     <div className="flex-1 flex items-center justify-center w-full relative mb-6 md:mb-8 mt-4 md:mt-0">
-                      {/* Adicionamos a classe CSS no próprio wrapper para o Fundo Animado aparecer por trás do Avatar recortado! */}
                       <div className={`relative w-48 h-48 md:w-64 md:h-64 flex items-center justify-center bg-gray-900 border border-gray-800 shadow-2xl overflow-hidden group ${isCircularPreview ? 'rounded-full' : 'rounded-3xl'} ${generatedItem.categoria === 'avatar' ? generatedItem.cssClass : ''}`}>
                          
                          {generatedItem.categoria === 'capa_fundo' && generatedItem.previewBase64 && (
@@ -1231,7 +1202,6 @@ function LojaIAView() {
                            </div>
                          )}
 
-                         {/* Aplica Mix-Blend Screen na Preview e usa h-full w-full cover para as molduras/avatares preencherem tudo */}
                          {generatedItem.previewBase64 && generatedItem.categoria !== 'capa_fundo' && (
                             <img 
                               src={generatedItem.previewBase64} 
