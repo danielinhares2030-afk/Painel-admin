@@ -926,8 +926,8 @@ function LojaIAView() {
     setStatusMsg('A conectar com as IAs...');
 
     // CHAVES DEFINIDAS AQUI
-    const geminiKey = import.meta.env.VITE_GEMINI_API_KEY;
-    const leonardoKey = import.meta.env.VITE_LEONARDO_API_KEY;
+    const geminiKey = import.meta.env.VITE_GEMINI_API_KEY// Usando a chave que estiver configurada
+    const leonardoKey = import.meta.env.VITE_LEONARDO_API_KEY// Usando a chave que estiver configurada
 
     if (!geminiKey || !leonardoKey) {
       alert("Erro: Certifique-se de que VITE_GEMINI_API_KEY e VITE_LEONARDO_API_KEY estão configuradas na Vercel.");
