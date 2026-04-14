@@ -936,7 +936,7 @@ function LojaIAView() {
       return;
     }
 
-    const textModelUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`;
+    const textModelUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${geminiKey}`;
 
     const finalPrompt = prompt.trim() === '' ? 'Invente um tema totalmente aleatório e criativo.' : prompt;
 
