@@ -925,7 +925,8 @@ function LojaIAView() {
     setGeneratedItem(null);
     setStatusMsg('A IA está a arquitetar o item...');
 
-    const apiKey = import.meta.env.VITE_FIREBASE_API_KEY; // Usando a chave que estiver configurada
+    // CHAVE ALTERADA PARA GEMINI
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY; 
     const textModelUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
     const imageModelUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${apiKey}`;
 
@@ -989,7 +990,14 @@ function LojaIAView() {
       });
 
       const textData = await response.json();
-      const aiResult = JSON.parse(textData.candidates[0].content.parts[0].text);
+
+      // VERIFICAÇÃO SEGURA (TEXTO)
+      if (!textData?.candidates?.length) {
+        throw new Error(textData.error ? textData.error.message : "A IA não retornou resposta (texto vazio).");
+      }
+
+      const firstCandidate = textData.candidates[0];
+      const aiResult = JSON.parse(firstCandidate.content.parts[0].text);
 
       let base64Image = "";
       
@@ -1001,11 +1009,15 @@ function LojaIAView() {
               body: JSON.stringify({ instances: { prompt: aiResult.imagePrompt }, parameters: { sampleCount: 1 } })
            });
            const imgData = await imgRes.json();
-           if(imgData.predictions && imgData.predictions[0]) {
-              base64Image = `data:image/png;base64,${imgData.predictions[0].bytesBase64Encoded}`;
-           } else {
-              throw new Error("A imagem foi bloqueada. Tente descrever de forma mais genérica.");
+
+           // VERIFICAÇÃO SEGURA (IMAGEM)
+           if (!imgData?.predictions?.length) {
+              throw new Error("A IA não retornou a imagem. O prompt pode ter sido bloqueado.");
            }
+
+           const firstPrediction = imgData.predictions[0];
+           base64Image = `data:image/png;base64,${firstPrediction.bytesBase64Encoded}`;
+
          } catch (imgErr) {
            console.error("Erro ao gerar imagem:", imgErr);
            alert(imgErr.message || "Ocorreu um erro ao gerar a imagem.");
@@ -1034,6 +1046,7 @@ function LojaIAView() {
       });
 
     } catch (error) {
+      // ALERTA AMIGÁVEL NA TELA SEM QUEBRAR O LAYOUT
       alert("Erro ao conectar com a IA: " + error.message);
     } finally {
       setIsGenerating(false);
