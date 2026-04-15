@@ -926,7 +926,7 @@ function LojaIAView() {
     setStatusMsg('A IA está a arquitetar o item...');
 
     // CHAVE GEMINI HARDCODED (Substitui totalmente o Leonardo e faz as duas funções)
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY// usa a chave que ta na vercel
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
     const textModelUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
     const imageModelUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-2.5-generate-001:predict?key=${apiKey}`;
 
