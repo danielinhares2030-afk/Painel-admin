@@ -926,10 +926,9 @@ function LojaIAView() {
     setStatusMsg('A IA está a arquitetar o item...');
 
     // CHAVE GEMINI HARDCODED (Substitui totalmente o Leonardo e faz as duas funções)
-    const apiKey = "AIzaSyBzq_IPMU9TahoISU54hs_Dg47q5XL8NU4"; 
-    
-    const textModelUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-    const imageModelUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict?key=${apiKey}`;
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY// usa a chave que ta na vercel
+    const textModelUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+    const imageModelUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-2.5-generate-001:predict?key=${apiKey}`;
 
     const finalPrompt = prompt.trim() === '' ? 'Invente um tema totalmente aleatório e criativo.' : prompt;
 
