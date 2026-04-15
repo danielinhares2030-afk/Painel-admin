@@ -928,8 +928,8 @@ function LojaIAView() {
     const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
 
     // Usando 1.5-flash para evitar o erro "Quota Exceeded (limit: 0)"
-    const textModelUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
-    const imageModelUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict?key=${apiKey}`;
+    const textModelUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.0-flash-latest:generateContent?key=${apiKey}`;
+    const imageModelUrl = `https://generativelanguage.googleapis.com/v1beta/models/Imagen-4-Ultra-Generate:predict?key=${apiKey}`;
 
     const finalPrompt = prompt.trim() === '' ? 'Invente um tema totalmente aleatório e criativo.' : prompt;
 
