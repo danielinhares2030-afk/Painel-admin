@@ -923,142 +923,47 @@ function LojaIAView() {
   const handleGenerate = async () => {
     setIsGenerating(true);
     setGeneratedItem(null);
-    setStatusMsg('A IA está a arquitetar o item...');
-    // Lendo a chave com segurança da Vercel
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-
-    // Usando 1.5-flash para evitar o erro "Quota Exceeded (limit: 0)"
-    const textModelUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.0-flash-latest:generateContent?key=${apiKey}`;
-    const imageModelUrl = `https://generativelanguage.googleapis.com/v1beta/models/Imagen-4-Ultra-Generate:predict?key=${apiKey}`;
-
-    const finalPrompt = prompt.trim() === '' ? 'Invente um tema totalmente aleatório e criativo.' : prompt;
-
-    let regrasEspecificas = "";
-    if (categoria === 'capa_fundo') {
-        regrasEspecificas = "CRÍTICO: O usuário quer um FUNDO (Background). É PROIBIDO desenhar personagens. ImagePrompt: 'Scenery, landscape, background only, NO CHARACTERS'.";
-    } else if (categoria === 'moldura') {
-        regrasEspecificas = "CRÍTICO: MOLDURA DE AVATAR. Objeto 2D plano. CÍRCULO PERFEITO tocando as bordas da tela (sem margens). OBRIGATÓRIO: Cores BRILHANTES sobre um FUNDO 100% PRETO SÓLIDO (#000000). ImagePrompt: '2D flat UI asset, circular avatar profile frame touching the edges of the canvas, zero margins, perfect circle shape, bright glowing neon colors, PURE PITCH BLACK BACKGROUND #000000, empty center, NO WHITE BACKGROUND'.";
-    } else if (categoria === 'avatar') {
-        regrasEspecificas = "CRÍTICO MAXIMO: AVATAR. O segredo aqui é separar a imagem do fundo! Na imagem (imagePrompt), você DEVE gerar apenas o personagem sobre um fundo 100% BRANCO SÓLIDO E VAZIO. É EXPRESSAMENTE PROIBIDO desenhar círculos, luas, emblemas ou auras atrás do personagem na imagem. Em contrapartida, no código 'css', você DEVE adicionar uma propriedade 'background' incrível (ex: radial-gradient, linear-gradient) que combine com o personagem. A nossa API vai apagar o fundo branco da imagem e o seu fundo CSS vai brilhar por trás de forma perfeita! ImagePrompt OBRIGATÓRIO: 'Close-up portrait of [NOME DO PERSONAGEM, se pedido], perfectly centered, authentic 2D anime style, masterpiece, exactly two normal eyes, clean face, PURE SOLID WHITE BACKGROUND #FFFFFF, completely empty background, NO colored circles behind character, NO geometric shapes, NO halos, NO auras'.";
-    } else if (categoria === 'nickname') {
-        regrasEspecificas = "CRÍTICO: O usuário quer um EFEITO PARA NICKNAME (Texto). NÃO DEVE GERAR IMAGEM! OBRIGATÓRIO: Defina o campo 'imagePrompt' EXATAMENTE com a palavra 'NONE'.";
-    }
-
-    let regraRaridade = `A 'raridade' deve ser escolhida pela IA. Use EXATAMENTE: "comum", "raro", "epico", "lendario" ou "mitico".`;
-    if (raridadeSelecionada !== 'aleatorio') {
-        regraRaridade = `MUITO IMPORTANTE: A 'raridade' DEVE SER EXATAMENTE: "${raridadeSelecionada}".`;
-    }
-
-    const systemInstruction = `Você é o diretor de arte de um App de Mangá. Crie um item cosmético único da categoria '${categoria}'.
-      Pedido do usuário: '${finalPrompt}'.
-      
-      REGRAS DE TEMA: NÃO crie tudo com o tema "galáxia", "universo" ou "infinito". Seja criativo.
-      
-      ${regrasEspecificas}
-
-      REGRAS DO CSS E ANIMAÇÃO: 
-      - O 'css' deve conter APENAS propriedades de ESTILO VISUAL (color, border, box-shadow, text-shadow, filter, background).
-      - Para AVATARES, você DEVE gerar um 'background' no CSS (ex: linear-gradient) para servir de fundo ao personagem.
-      - PROIBIDO usar propriedades de LAYOUT no CSS (como width, height, margin, position, display).
-      - Se for animado, OBRIGATORIAMENTE crie animações no campo 'keyframes' e aplique na string do 'css'.
-
-      REGRAS DE FIDELIDADE EXTREMA E COPYRIGHT: O usuário odeia personagens genéricos. Se ele pedir um personagem de Anime, Mangá ou Manhwa (ex: Sasuke, Naruto, Jinwoo, Gojo), VOCÊ É OBRIGADO a gerar o personagem EXATAMENTE como ele é, COM AS ROUPAS, OLHOS (ex: Sharingan) E CABELO ORIGINAIS. O gerador de imagens pode bloquear nomes com direitos de autor, portanto, no 'imagePrompt', use o NOME REAL do personagem, mas também inclua uma descrição visual absurdamente detalhada de como ele é, para garantir que ele saia perfeito se o nome for ignorado.
-      
-      ${regraRaridade}`;
+    setStatusMsg('A IA está a gerar a arte (Backend)...');
 
     try {
-      const response = await fetch(textModelUrl, {
-        method: "POST", headers: { "Content-Type": "application/json" },
+      // Chamada unificada para a API Route no backend
+      const response = await fetch('/api/gerar-item', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt || "Gerar cosmético premium" }] }],
-          systemInstruction: { parts: [{ text: systemInstruction }] },
-          generationConfig: {
-            responseMimeType: "application/json",
-            responseSchema: {
-              type: "OBJECT",
-              properties: {
-                nome: { type: "STRING" },
-                descricao: { type: "STRING" },
-                raridade: { type: "STRING" },
-                css: { type: "STRING", description: "Propriedades visuais. IMPORTANTE: Para avatares, forneça aqui um background (ex: linear-gradient) para ser o fundo!" },
-                keyframes: { type: "STRING" },
-                imagePrompt: { type: "STRING", description: "Em INGLÊS. Se a categoria for nickname, defina APENAS como 'NONE'." }
-              },
-              required: ["nome", "descricao", "raridade", "css", "imagePrompt"]
-            }
-          }
+          tipo: categoria,
+          raridade: raridadeSelecionada === 'aleatorio' ? 'epico' : raridadeSelecionada,
+          nome: prompt || 'Cosmético'
         })
       });
 
       if (!response.ok) {
-         const errorData = await response.json();
-         throw new Error(errorData.error?.message || "Erro API Gemini (Texto)");
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Erro ao gerar item');
       }
 
-      const textData = await response.json();
-      
-      if (!textData?.candidates?.length || !textData.candidates[0]?.content?.parts?.length) {
-         throw new Error("A IA não retornou o texto ou o prompt foi bloqueado por segurança.");
-      }
+      const data = await response.json();
 
-      const firstCandidate = textData.candidates[0];
-      const aiResult = JSON.parse(firstCandidate.content.parts[0].text);
+      const raridadeFinal = raridadeSelecionada !== 'aleatorio' ? raridadeSelecionada : 'epico';
+      const uniqueId = "item_" + Date.now();
 
-      let base64Image = "";
-      
-      if (aiResult.imagePrompt && aiResult.imagePrompt !== "NONE") {
-         setStatusMsg('Gemini Imagen está a pintar a arte...');
-         try {
-           const imgRes = await fetch(imageModelUrl, {
-              method: "POST", headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ 
-                 instances: [{ prompt: `high quality anime style, masterpiece, flat colors, clean lines, ${aiResult.imagePrompt}` }], 
-                 parameters: { sampleCount: 1, aspectRatio: "1:1" } 
-              })
-           });
-
-           if (!imgRes.ok) {
-              const errorData = await imgRes.json();
-              throw new Error(errorData.error?.message || "Erro API Imagen (Google)");
-           }
-
-           const imgData = await imgRes.json();
-           
-           if (!imgData?.predictions?.length) {
-              throw new Error("A IA não retornou a imagem. O prompt pode ter sido bloqueado.");
-           }
-
-           const firstPrediction = imgData.predictions[0];
-           base64Image = `data:image/png;base64,${firstPrediction.bytesBase64Encoded}`;
-         } catch (imgErr) {
-           console.error("Erro ao gerar imagem:", imgErr);
-           alert("Erro Imagen: " + (imgErr.message || "Ocorreu um erro ao gerar a imagem."));
-           setIsGenerating(false);
-           setStatusMsg('');
-           return; 
-         }
-      }
-
-      const raridadeFinal = raridadeSelecionada !== 'aleatorio' ? raridadeSelecionada : aiResult.raridade;
-      const finalPrice = TABELA_PRECOS[raridadeFinal] || 1000;
-      const uniqueId = "item_" + Date.now() + Math.floor(Math.random()*1000);
-
+      // Monta a estrutura final localmente mantendo as funções da loja ativas
       setGeneratedItem({
         id: uniqueId,
-        nome: aiResult.nome,
+        nome: prompt || `${categoria.replace('_', ' ')} ${raridadeFinal}`,
         categoria: categoria,
-        descricao: aiResult.descricao,
+        descricao: `Item gerado com sucesso via Backend FLUX (${raridadeFinal})`,
         raridade: raridadeFinal,
-        preco: finalPrice,
-        css: aiResult.css,
-        keyframes: aiResult.keyframes || "",
+        preco: TABELA_PRECOS[raridadeFinal] || 1000,
+        css: "filter: drop-shadow(0 0 10px rgba(168, 85, 247, 0.5));", 
+        keyframes: "",
         cssClass: uniqueId,
-        previewBase64: base64Image,
-        imagePrompt: aiResult.imagePrompt
+        previewBase64: data.image,
+        imagePrompt: `Gerado via backend seguro: ${categoria}`
       });
 
     } catch (error) {
-      alert("Erro ao conectar com a IA: " + error.message);
+      alert("Erro ao conectar com a API: " + error.message);
     } finally {
       setIsGenerating(false);
       setStatusMsg('');
@@ -1068,7 +973,7 @@ function LojaIAView() {
   const handleSaveToStore = async () => {
     if(!generatedItem) return;
     setIsSaving(true);
-    setStatusMsg('Processando imagem para a Nuvem...');
+    setStatusMsg('Processando imagem...');
 
     try {
        let finalImageUrl = "";
@@ -1088,7 +993,7 @@ function LojaIAView() {
 
           const file = new File([blob], `${generatedItem.id}.png`, { type: "image/png" });
           
-          setStatusMsg('A guardar no Cloudinary...');
+          setStatusMsg('A guardar na Loja...');
           let cloudUrl = await uploadToCloudinary(file);
           
           let filtroOculto = 'none';
@@ -1160,7 +1065,7 @@ function LojaIAView() {
 
              <div>
                <label className="block text-sm font-bold text-gray-400 mb-2">Prompt (Opcional)</label>
-               <textarea value={prompt} onChange={e=>setPrompt(e.target.value)} placeholder="Descreva um personagem de anime (ex: Sasuke Uchiha) ou um efeito incrível..." rows="4" className="w-full bg-gray-900 p-4 rounded-xl border border-gray-800 text-white outline-none focus:border-purple-500 resize-none transition-colors" />
+               <textarea value={prompt} onChange={e=>setPrompt(e.target.value)} placeholder="Ex: Guerreiro de armadura ou fundo galáctico..." rows="4" className="w-full bg-gray-900 p-4 rounded-xl border border-gray-800 text-white outline-none focus:border-purple-500 resize-none transition-colors" />
              </div>
 
              <button onClick={handleGenerate} disabled={isGenerating || isSaving} className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white py-4 rounded-xl font-black flex items-center justify-center gap-3 transition-all shadow-lg shadow-purple-600/30 disabled:opacity-50">
