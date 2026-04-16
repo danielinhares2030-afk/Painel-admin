@@ -9,7 +9,6 @@ import {
 import { auth, db } from './firebase';
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "firebase/auth";
 import { collection, doc, setDoc, getDocs, deleteDoc, updateDoc } from "firebase/firestore";
-// IMPORT ORIGINAL RESTAURADO PARA NÃO QUEBRAR A BUILD
 import { uploadToCloudinary, applyCloudinaryTransform, removeBackgroundWithRemoveBg } from './api';
 
 const GENEROS = ["Ação", "Aventura", "Romance", "Fantasia", "Sci-Fi", "Terror", "Sistema", "Isekai", "Escolar", "Artes Marciais", "Cultivo", "Comédia", "Drama", "Mistério", "Slice of Life", "Sobrenatural", "Histórico", "Esportes", "Mecha", "Psicológico"];
@@ -75,7 +74,7 @@ function AdminPanel() {
           <div className="pt-6 pb-2 text-xs font-black text-gray-600 uppercase tracking-widest pl-2">Capítulos</div>
           <MenuButton icon={UploadCloud} label="Upload em Massa" active={currentView === 'upload_capitulo'} onClick={() => handleNavigate('upload_capitulo')} />
           <div className="pt-6 pb-2 text-xs font-black text-gray-600 uppercase tracking-widest pl-2">Loja & Cosméticos</div>
-          <MenuButton icon={Wand2} label="IA Geradora" active={currentView === 'loja_ia'} onClick={() => handleNavigate('loja_ia')} />
+          <MenuButton icon={Wand2} label="Gerador Local" active={currentView === 'loja_ia'} onClick={() => handleNavigate('loja_ia')} />
           <MenuButton icon={ShoppingBag} label="Gerenciar Loja" active={currentView === 'loja'} onClick={() => handleNavigate('loja')} />
         </nav>
         <div className="p-4 border-t border-gray-800 bg-gray-900">
@@ -912,6 +911,31 @@ function LojaView() {
   );
 }
 
+// OS DADOS LOCAIS DO GERADOR (Ficam aqui em cima para organizar)
+const MOCK_DATA = {
+  avatar: [
+    { nome: "Guerreiro Sombrio", descricao: "Um avatar misterioso.", img: "/avatars/avatar1.png", css: "filter: drop-shadow(0 0 10px #a855f7);" },
+    { nome: "Mago de Gelo", descricao: "Poderes glaciais.", img: "/avatars/avatar2.png", css: "filter: drop-shadow(0 0 10px #3b82f6);" },
+    { nome: "Lutador Neon", descricao: "Estilo cibernético.", img: "/avatars/avatar3.png", css: "filter: drop-shadow(0 0 10px #10b981);" }
+  ],
+  moldura: [
+    { nome: "Fogo Primordial", descricao: "Moldura ardente.", img: "/molduras/moldura1.png", css: "box-shadow: 0 0 15px #ef4444;" },
+    { nome: "Cristal Místico", descricao: "Puro cristal brilhante.", img: "/molduras/moldura2.png", css: "box-shadow: 0 0 15px #06b6d4;" },
+    { nome: "Aura Sombria", descricao: "Energia negra emanando.", img: "/molduras/moldura3.png", css: "box-shadow: 0 0 15px #8b5cf6;" }
+  ],
+  capa_fundo: [
+    { nome: "Castelo Voador", descricao: "Castelo nos céus.", img: "/capas/capa1.png", css: "" },
+    { nome: "Floresta Noturna", descricao: "Floresta à noite.", img: "/capas/capa2.png", css: "" },
+    { nome: "Ruínas Antigas", descricao: "Civilização perdida.", img: "/capas/capa3.png", css: "" }
+  ],
+  nickname: [
+    { nome: "Sombrio", descricao: "Efeito roxo intenso", css: "color: #fff; text-shadow: 0 0 10px #a855f7;", img: "" },
+    { nome: "Neko", descricao: "Efeito fofo rosa", css: "color: #fff; text-shadow: 0 0 10px #ec4899;", img: "" },
+    { nome: "Inferno", descricao: "Efeito obscuro vermelho", css: "color: #fff; text-shadow: 0 0 10px #ef4444;", img: "" },
+    { nome: "Cibernético", descricao: "Brilho ciano forte", css: "color: #fff; text-shadow: 0 0 10px #06b6d4;", img: "" }
+  ]
+};
+
 function LojaIAView() {
   const [prompt, setPrompt] = useState('');
   const [categoria, setCategoria] = useState(CATEGORIAS_IA[0]);
@@ -921,113 +945,50 @@ function LojaIAView() {
   const [isSaving, setIsSaving] = useState(false);
   const [statusMsg, setStatusMsg] = useState('');
 
-  const handleGenerate = async () => {
+  const handleGenerate = () => {
     setIsGenerating(true);
     setGeneratedItem(null);
-    setStatusMsg('A conectar com o OpenRouter...');
+    setStatusMsg('A procurar ficheiros locais...');
 
-    const openRouterKey = import.meta.env.VITE_OPENROUTER_API_KEY;
-    if (!openRouterKey) {
-      alert("Erro: Chave VITE_OPENROUTER_API_KEY não encontrada nas variáveis de ambiente da Vercel.");
-      setIsGenerating(false);
-      setStatusMsg('');
-      return;
-    }
+    // Simulando o tempo de carregamento
+    setTimeout(() => {
+      const pool = MOCK_DATA[categoria] || MOCK_DATA.avatar;
+      const randomChoice = pool[Math.floor(Math.random() * pool.length)];
 
-    const finalPrompt = prompt.trim() === '' ? 'Invente um tema totalmente aleatório e criativo.' : prompt;
-
-    let regrasEspecificas = "";
-    if (categoria === 'capa_fundo') regrasEspecificas = "CRÍTICO: O usuário quer um FUNDO. ImagePrompt: 'Scenery, landscape, background only, NO CHARACTERS'.";
-    else if (categoria === 'moldura') regrasEspecificas = "CRÍTICO: MOLDURA DE AVATAR. Objeto 2D plano. CÍRCULO PERFEITO. ImagePrompt: '2D flat UI asset, circular avatar profile frame, perfect circle shape, bright glowing neon colors, PURE PITCH BLACK BACKGROUND #000000, empty center'.";
-    else if (categoria === 'avatar') regrasEspecificas = "CRÍTICO: AVATAR. ImagePrompt: 'Close-up portrait of [NOME DO PERSONAGEM], perfectly centered, authentic 2D anime style, masterpiece, PURE SOLID WHITE BACKGROUND #FFFFFF'.";
-    else if (categoria === 'nickname') regrasEspecificas = "CRÍTICO: EFEITO PARA NICKNAME (Texto). NÃO DEVE GERAR IMAGEM! OBRIGATÓRIO: Defina o campo 'imagePrompt' EXATAMENTE com a palavra 'NONE'.";
-
-    const promptCompleto = `Você é o diretor de arte. Crie um item cosmético único da categoria '${categoria}'.
-      Pedido: '${finalPrompt}'.
-      ${regrasEspecificas}
-      Retorne APENAS um JSON rigoroso com as chaves: nome, descricao, raridade, css, keyframes e imagePrompt. Não inclua blocos de código markdown.`;
-
-    try {
-      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${openRouterKey}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          model: "openai/gpt-4o-mini",
-          messages: [{ role: "user", content: promptCompleto }]
-        })
-      });
-
-      if (!response.ok) {
-         const errorData = await response.json();
-         throw new Error(errorData.error?.message || "Erro na API do OpenRouter");
-      }
-
-      const data = await response.json();
-      const textoIA = data.choices[0].message.content;
-      const textoLimpo = textoIA.replace(/```json/g, '').replace(/```/g, '').trim();
-      const aiResult = JSON.parse(textoLimpo);
-
-      const raridadeFinal = raridadeSelecionada !== 'aleatorio' ? raridadeSelecionada : aiResult.raridade;
+      const raridadeFinal = raridadeSelecionada !== 'aleatorio' ? raridadeSelecionada : 'epico';
       const uniqueId = "item_" + Date.now();
+      
+      let nomeFinal = randomChoice.nome;
+      if (categoria === 'nickname' && prompt.trim() !== '') {
+         nomeFinal = prompt.trim(); // Se o utilizador digitou algo para o nickname, usamos
+      }
 
       setGeneratedItem({
         id: uniqueId,
-        nome: aiResult.nome,
+        nome: nomeFinal,
         categoria: categoria,
-        descricao: aiResult.descricao,
+        descricao: randomChoice.descricao,
         raridade: raridadeFinal,
         preco: TABELA_PRECOS[raridadeFinal] || 1000,
-        css: aiResult.css,
-        keyframes: aiResult.keyframes || "",
+        css: randomChoice.css || "",
+        keyframes: "",
         cssClass: uniqueId,
-        previewBase64: "", // Sem gerador de imagem externo neste momento
-        imagePrompt: aiResult.imagePrompt
+        previewBase64: randomChoice.img || "",
+        imagePrompt: "LOCAL"
       });
 
-    } catch (error) {
-      alert("Erro ao conectar com a IA: " + error.message);
-    } finally {
       setIsGenerating(false);
       setStatusMsg('');
-    }
+    }, 800);
   };
 
   const handleSaveToStore = async () => {
     if(!generatedItem) return;
     setIsSaving(true);
-    setStatusMsg('Processando item...');
+    setStatusMsg('A guardar na Loja...');
 
     try {
-       let finalImageUrl = "";
-       if (generatedItem.previewBase64) {
-          const res = await fetch(generatedItem.previewBase64);
-          let blob = await res.blob();
-          
-          if (generatedItem.categoria === 'avatar') {
-             setStatusMsg('A remover o fundo do ecrã branco com Remove.bg...');
-             try {
-                blob = await removeBackgroundWithRemoveBg(blob);
-             } catch(removeErr) {
-                console.warn("Remove.bg failed:", removeErr);
-                alert("Aviso: A API do Remove.bg falhou (" + removeErr.message + "). A imagem será salva com o fundo original.");
-             }
-          }
-
-          const file = new File([blob], `${generatedItem.id}.png`, { type: "image/png" });
-          
-          setStatusMsg('A guardar na Loja...');
-          let cloudUrl = await uploadToCloudinary(file);
-          
-          let filtroOculto = 'none';
-          if (generatedItem.categoria === 'moldura') {
-            filtroOculto = 'e_make_transparent:30:black';
-          }
-          finalImageUrl = applyCloudinaryTransform(cloudUrl, filtroOculto);
-       }
-
+       // Salva diretamente com o URL local sem passar pelo Cloudinary
        await setDoc(doc(db, "loja_itens", generatedItem.id), {
           nome: generatedItem.nome,
           categoria: generatedItem.categoria,
@@ -1037,7 +998,7 @@ function LojaIAView() {
           cssClass: generatedItem.cssClass,
           css: generatedItem.css,
           animacao: generatedItem.keyframes, 
-          preview: finalImageUrl, 
+          preview: generatedItem.previewBase64, 
           createdAt: Date.now()
        });
 
@@ -1062,8 +1023,8 @@ function LojaIAView() {
         <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-indigo-600/20 rounded-full blur-[100px] pointer-events-none"></div>
 
         <div className="relative z-10">
-          <h3 className="text-2xl md:text-3xl font-black text-white flex items-center gap-3 mb-2"><Wand2 className="w-8 h-8 text-purple-500" /> IA Geradora de Cosméticos</h3>
-          <p className="text-gray-400 text-sm md:text-base">Descreva o item ou deixe em branco para a inteligência artificial inventar algo surpreendente.</p>
+          <h3 className="text-2xl md:text-3xl font-black text-white flex items-center gap-3 mb-2"><Layers className="w-8 h-8 text-purple-500" /> Gerador Automático</h3>
+          <p className="text-gray-400 text-sm md:text-base">Escolha a categoria para gerar um item a partir dos arquivos locais.</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 relative z-10">
@@ -1080,22 +1041,22 @@ function LojaIAView() {
              </div>
              
              <div>
-               <label className="block text-sm font-bold text-gray-400 mb-2">Raridade Desejada</label>
+               <label className="block text-sm font-bold text-gray-400 mb-2">Raridade</label>
                <select value={raridadeSelecionada} onChange={e=>setRaridadeSelecionada(e.target.value)} className="w-full bg-gray-900 p-3.5 rounded-xl border border-gray-800 text-white outline-none focus:border-purple-500 cursor-pointer capitalize font-bold">
                  {RARIDADES_IA.map(r => (
-                   <option key={r} value={r}>{r === 'aleatorio' ? 'Deixar IA Escolher (Aleatório)' : r}</option>
+                   <option key={r} value={r}>{r === 'aleatorio' ? 'Aleatório' : r}</option>
                  ))}
                </select>
              </div>
 
              <div>
-               <label className="block text-sm font-bold text-gray-400 mb-2">Prompt (Opcional)</label>
-               <textarea value={prompt} onChange={e=>setPrompt(e.target.value)} placeholder="Ex: Guerreiro de armadura ou fundo galáctico..." rows="4" className="w-full bg-gray-900 p-4 rounded-xl border border-gray-800 text-white outline-none focus:border-purple-500 resize-none transition-colors" />
+               <label className="block text-sm font-bold text-gray-400 mb-2">Nome Personalizado (Apenas Nickname)</label>
+               <input type="text" value={prompt} onChange={e=>setPrompt(e.target.value)} placeholder="Digite o nome..." className="w-full bg-gray-900 p-4 rounded-xl border border-gray-800 text-white outline-none focus:border-purple-500 transition-colors" />
              </div>
 
              <button onClick={handleGenerate} disabled={isGenerating || isSaving} className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white py-4 rounded-xl font-black flex items-center justify-center gap-3 transition-all shadow-lg shadow-purple-600/30 disabled:opacity-50">
                 {isGenerating ? <Loader2 className="w-6 h-6 animate-spin"/> : <Sparkles className="w-6 h-6" />}
-                {isGenerating ? statusMsg : 'Gerar Magia com IA'}
+                {isGenerating ? statusMsg : 'Gerar Item Local'}
              </button>
           </div>
 
@@ -1106,16 +1067,16 @@ function LojaIAView() {
                {isGenerating && (
                  <div className="flex flex-col items-center text-center animate-pulse p-4">
                    <div className="w-16 h-16 md:w-20 md:h-20 mb-6 bg-purple-900/30 rounded-full flex items-center justify-center border border-purple-500/50 relative overflow-hidden">
-                     <Wand2 className="w-8 h-8 md:w-10 md:h-10 text-purple-400 absolute animate-spin" style={{ animationDuration: '3s' }}/>
+                     <Layers className="w-8 h-8 md:w-10 md:h-10 text-purple-400 absolute animate-spin" style={{ animationDuration: '3s' }}/>
                    </div>
-                   <h2 className="text-xl md:text-2xl font-black text-white bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-indigo-400">Trabalhando...</h2>
+                   <h2 className="text-xl md:text-2xl font-black text-white bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-indigo-400">Procurando...</h2>
                    <p className="text-gray-500 mt-2 font-bold text-sm">{statusMsg}</p>
                  </div>
                )}
 
                {!isGenerating && !generatedItem && (
                  <div className="text-center opacity-30 p-4">
-                    <Wand2 className="w-16 h-16 md:w-20 md:h-20 mx-auto mb-4 text-gray-500" />
+                    <Layers className="w-16 h-16 md:w-20 md:h-20 mx-auto mb-4 text-gray-500" />
                     <p className="text-base md:text-lg font-bold text-gray-400">Aguardando instruções...</p>
                  </div>
                )}
@@ -1146,7 +1107,7 @@ function LojaIAView() {
                          )}
 
                          {generatedItem.categoria === 'nickname' && (
-                           <div className={`absolute inset-0 m-auto flex items-center justify-center font-black text-2xl md:text-3xl z-20 ${generatedItem.cssClass}`}>AdminManga</div>
+                           <div className={`absolute inset-0 m-auto flex items-center justify-center font-black text-2xl md:text-3xl z-20 ${generatedItem.cssClass}`}>{generatedItem.nome}</div>
                          )}
                       </div>
                     </div>
