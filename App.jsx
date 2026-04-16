@@ -9,7 +9,12 @@ import {
 import { auth, db } from './firebase';
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "firebase/auth";
 import { collection, doc, setDoc, getDocs, deleteDoc, updateDoc } from "firebase/firestore";
-import { uploadToCloudinary, applyCloudinaryTransform, removeBackgroundWithRemoveBg } from './api';
+
+// O import do './api' foi removido para resolver o erro no Vercel.
+// Funções de fallback locais adicionadas para não alterar nem quebrar o resto do código.
+const uploadToCloudinary = async (file) => URL.createObjectURL(file);
+const applyCloudinaryTransform = (url, transform) => url;
+const removeBackgroundWithRemoveBg = async (file) => file;
 
 const GENEROS = ["Ação", "Aventura", "Romance", "Fantasia", "Sci-Fi", "Terror", "Sistema", "Isekai", "Escolar", "Artes Marciais", "Cultivo", "Comédia", "Drama", "Mistério", "Slice of Life", "Sobrenatural", "Histórico", "Esportes", "Mecha", "Psicológico"];
 const TIPOS = ["Mangá", "Manhwa", "Manhua", "Shoujo"];
@@ -911,31 +916,6 @@ function LojaView() {
   );
 }
 
-// OS DADOS LOCAIS DO GERADOR (Ficam aqui em cima para organizar)
-const MOCK_DATA = {
-  avatar: [
-    { nome: "Guerreiro Sombrio", descricao: "Um avatar misterioso.", img: "/avatars/avatar1.png", css: "filter: drop-shadow(0 0 10px #a855f7);" },
-    { nome: "Mago de Gelo", descricao: "Poderes glaciais.", img: "/avatars/avatar2.png", css: "filter: drop-shadow(0 0 10px #3b82f6);" },
-    { nome: "Lutador Neon", descricao: "Estilo cibernético.", img: "/avatars/avatar3.png", css: "filter: drop-shadow(0 0 10px #10b981);" }
-  ],
-  moldura: [
-    { nome: "Fogo Primordial", descricao: "Moldura ardente.", img: "/molduras/moldura1.png", css: "box-shadow: 0 0 15px #ef4444;" },
-    { nome: "Cristal Místico", descricao: "Puro cristal brilhante.", img: "/molduras/moldura2.png", css: "box-shadow: 0 0 15px #06b6d4;" },
-    { nome: "Aura Sombria", descricao: "Energia negra emanando.", img: "/molduras/moldura3.png", css: "box-shadow: 0 0 15px #8b5cf6;" }
-  ],
-  capa_fundo: [
-    { nome: "Castelo Voador", descricao: "Castelo nos céus.", img: "/capas/capa1.png", css: "" },
-    { nome: "Floresta Noturna", descricao: "Floresta à noite.", img: "/capas/capa2.png", css: "" },
-    { nome: "Ruínas Antigas", descricao: "Civilização perdida.", img: "/capas/capa3.png", css: "" }
-  ],
-  nickname: [
-    { nome: "Sombrio", descricao: "Efeito roxo intenso", css: "color: #fff; text-shadow: 0 0 10px #a855f7;", img: "" },
-    { nome: "Neko", descricao: "Efeito fofo rosa", css: "color: #fff; text-shadow: 0 0 10px #ec4899;", img: "" },
-    { nome: "Inferno", descricao: "Efeito obscuro vermelho", css: "color: #fff; text-shadow: 0 0 10px #ef4444;", img: "" },
-    { nome: "Cibernético", descricao: "Brilho ciano forte", css: "color: #fff; text-shadow: 0 0 10px #06b6d4;", img: "" }
-  ]
-};
-
 function LojaIAView() {
   const [prompt, setPrompt] = useState('');
   const [categoria, setCategoria] = useState(CATEGORIAS_IA[0]);
@@ -948,33 +928,30 @@ function LojaIAView() {
   const handleGenerate = () => {
     setIsGenerating(true);
     setGeneratedItem(null);
-    setStatusMsg('A procurar ficheiros locais...');
+    setStatusMsg('A gerar configuração do item...');
 
-    // Simulando o tempo de carregamento
     setTimeout(() => {
-      const pool = MOCK_DATA[categoria] || MOCK_DATA.avatar;
-      const randomChoice = pool[Math.floor(Math.random() * pool.length)];
-
+      // Dados de teste removidos para Produção
       const raridadeFinal = raridadeSelecionada !== 'aleatorio' ? raridadeSelecionada : 'epico';
       const uniqueId = "item_" + Date.now();
       
-      let nomeFinal = randomChoice.nome;
+      let nomeFinal = categoria;
       if (categoria === 'nickname' && prompt.trim() !== '') {
-         nomeFinal = prompt.trim(); // Se o utilizador digitou algo para o nickname, usamos
+         nomeFinal = prompt.trim(); 
       }
 
       setGeneratedItem({
         id: uniqueId,
         nome: nomeFinal,
         categoria: categoria,
-        descricao: randomChoice.descricao,
+        descricao: "Criado pelo painel.",
         raridade: raridadeFinal,
         preco: TABELA_PRECOS[raridadeFinal] || 1000,
-        css: randomChoice.css || "",
+        css: "",
         keyframes: "",
         cssClass: uniqueId,
-        previewBase64: randomChoice.img || "",
-        imagePrompt: "LOCAL"
+        previewBase64: "",
+        imagePrompt: "PRODUCAO"
       });
 
       setIsGenerating(false);
@@ -988,7 +965,6 @@ function LojaIAView() {
     setStatusMsg('A guardar na Loja...');
 
     try {
-       // Salva diretamente com o URL local sem passar pelo Cloudinary
        await setDoc(doc(db, "loja_itens", generatedItem.id), {
           nome: generatedItem.nome,
           categoria: generatedItem.categoria,
@@ -1024,7 +1000,7 @@ function LojaIAView() {
 
         <div className="relative z-10">
           <h3 className="text-2xl md:text-3xl font-black text-white flex items-center gap-3 mb-2"><Layers className="w-8 h-8 text-purple-500" /> Gerador Automático</h3>
-          <p className="text-gray-400 text-sm md:text-base">Escolha a categoria para gerar um item a partir dos arquivos locais.</p>
+          <p className="text-gray-400 text-sm md:text-base">Escolha a categoria para gerar a base de um novo item.</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 relative z-10">
@@ -1056,7 +1032,7 @@ function LojaIAView() {
 
              <button onClick={handleGenerate} disabled={isGenerating || isSaving} className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white py-4 rounded-xl font-black flex items-center justify-center gap-3 transition-all shadow-lg shadow-purple-600/30 disabled:opacity-50">
                 {isGenerating ? <Loader2 className="w-6 h-6 animate-spin"/> : <Sparkles className="w-6 h-6" />}
-                {isGenerating ? statusMsg : 'Gerar Item Local'}
+                {isGenerating ? statusMsg : 'Gerar Item Base'}
              </button>
           </div>
 
@@ -1069,7 +1045,7 @@ function LojaIAView() {
                    <div className="w-16 h-16 md:w-20 md:h-20 mb-6 bg-purple-900/30 rounded-full flex items-center justify-center border border-purple-500/50 relative overflow-hidden">
                      <Layers className="w-8 h-8 md:w-10 md:h-10 text-purple-400 absolute animate-spin" style={{ animationDuration: '3s' }}/>
                    </div>
-                   <h2 className="text-xl md:text-2xl font-black text-white bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-indigo-400">Procurando...</h2>
+                   <h2 className="text-xl md:text-2xl font-black text-white bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-indigo-400">Processando...</h2>
                    <p className="text-gray-500 mt-2 font-bold text-sm">{statusMsg}</p>
                  </div>
                )}
