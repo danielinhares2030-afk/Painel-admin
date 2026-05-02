@@ -12,9 +12,9 @@ import { collection, doc, setDoc, getDocs, deleteDoc, updateDoc } from "firebase
 
 // O import do './api' foi removido para resolver o erro no Vercel.
 // Funções de fallback locais adicionadas para não alterar nem quebrar o resto do código.
-const uploadToCloudinary = async (file) => URL.createObjectURL(file);
-const applyCloudinaryTransform = (url, transform) => url;
-const removeBackgroundWithRemoveBg = async (file) => file;
+const CLOUD_NAME = import.meta.env.VITE_CLOUD_NAME;
+const UPLOAD_PRESET = import.meta.env.VITE_UPLOAD_PRESET;
+const UPLOAD_URL = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`;
 
 const GENEROS = ["Ação", "Aventura", "Romance", "Fantasia", "Sci-Fi", "Terror", "Sistema", "Isekai", "Escolar", "Artes Marciais", "Cultivo", "Comédia", "Drama", "Mistério", "Slice of Life", "Sobrenatural", "Histórico", "Esportes", "Mecha", "Psicológico"];
 const TIPOS = ["Mangá", "Manhwa", "Manhua", "Shoujo"];
