@@ -10,11 +10,41 @@ import { auth, db } from './firebase';
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "firebase/auth";
 import { collection, doc, setDoc, getDocs, deleteDoc, updateDoc } from "firebase/firestore";
 
-// O import do './api' foi removido para resolver o erro no Vercel.
-// Funções de fallback locais adicionadas para não alterar nem quebrar o resto do código.
+// Puxa as variáveis da Vercel
 const CLOUD_NAME = import.meta.env.VITE_CLOUD_NAME;
 const UPLOAD_PRESET = import.meta.env.VITE_UPLOAD_PRESET;
-const UPLOAD_URL = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`;
+
+// A FUNÇÃO RESTAURADA PARA FAZER O UPLOAD FUNCIONAR
+const uploadToCloudinary = async (file) => {
+  if (!CLOUD_NAME || !UPLOAD_PRESET) {
+    throw new Error("As chaves do Cloudinary não carregaram da Vercel!");
+  }
+
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("upload_preset", UPLOAD_PRESET);
+
+  const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    throw new Error("Falha ao enviar imagem para o Cloudinary.");
+  }
+
+  const data = await response.json();
+  return data.secure_url; 
+};
+
+// Funções extras essenciais para a Loja Manual não quebrar
+const applyCloudinaryTransform = (url, transform) => {
+  if (!url) return url;
+  const parts = url.split('/upload/');
+  return `${parts[0]}/upload/${transform}/${parts[1]}`;
+};
+
+const removeBackgroundWithRemoveBg = async (file) => file;
 
 const GENEROS = ["Ação", "Aventura", "Romance", "Fantasia", "Sci-Fi", "Terror", "Sistema", "Isekai", "Escolar", "Artes Marciais", "Cultivo", "Comédia", "Drama", "Mistério", "Slice of Life", "Sobrenatural", "Histórico", "Esportes", "Mecha", "Psicológico"];
 const TIPOS = ["Mangá", "Manhwa", "Manhua", "Shoujo"];
